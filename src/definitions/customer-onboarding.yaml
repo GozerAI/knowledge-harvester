@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Customer Onboarding
+
+name: customer-onboarding
+description: Customer onboarding guides, implementation checklists, and activation procedures
+artifact_type: documentation
+tool_type: onboarding
+language: markdown
+
+queries:
+  - query: '"customer onboarding" "owner" "timeline" extension:md'
+    label: customer-onboarding
+  - query: '"implementation checklist" "customer" extension:md'
+    label: implementation-checklist
+  - query: '"activation" "handoff" "customer" extension:md'
+    label: activation-handoff
+
+validation:
+  min_size: 160
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)onboarding|implementation|activation|handoff|timeline'
+
+metadata:
+  framework: onboarding
+  default_category: checklist

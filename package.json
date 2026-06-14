@@ -1,0 +1,26 @@
+{
+  "name": "knowledge-harvester",
+  "version": "1.0.0",
+  "description": "Multi-tool knowledge harvester — scrapes workflows, code patterns, API specs, infra configs, and AI assets from 27+ sources, classifies, scores, and packages them.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "harvest": "node src/index.js harvest --source all",
+    "harvest:n8n": "node src/index.js harvest --source n8n-community",
+    "harvest:github": "node src/index.js harvest --source github",
+    "harvest:reddit": "node src/index.js harvest --source reddit",
+    "classify": "node src/index.js classify",
+    "score": "node src/index.js score",
+    "embed": "node src/index.js embed",
+    "migrate": "node src/db/migrate.js",
+    "pipeline": "node src/index.js pipeline",
+    "test": "node --test tests/harvesters/*.test.js tests/processing/*.test.js tests/utils/*.test.js tests/db/*.test.js tests/export/*.test.js tests/api/*.test.js tests/net/*.test.js tests/testing/*.test.js tests/autonomy/*.test.js tests/self-maintenance/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0",
+    "p-limit": "^6.0.0",
+    "pg": "^8.13.0",
+    "yaml": "^2.8.2"
+  }
+}

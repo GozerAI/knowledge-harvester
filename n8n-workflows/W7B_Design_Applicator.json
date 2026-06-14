@@ -1,0 +1,160 @@
+{
+  "name": "W7B: Design Applicator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W7B: Design Applicator\n\n## Purpose\nApplies design decisions (colors, fonts, layout) to marketing assets.\nTakes existing teaser package and regenerates with branding applied.\n\n## Input\n```json\n{\n  \"productId\": \"prod_123\",\n  \"design\": {\n    \"theme\": \"luxury\",\n    \"colors\": {\n      \"primary\": \"#7c3aed\",\n      \"secondary\": \"#5b21b6\",\n      \"accent\": \"#a78bfa\",\n      \"bg\": \"#faf5ff\",\n      \"text\": \"#1f2937\"\n    },\n    \"font\": \"classic\",\n    \"fontConfig\": {\n      \"heading\": \"Playfair Display\",\n      \"body\": \"Source Sans Pro\"\n    },\n    \"layout\": \"centered\"\n  }\n}\n```\n\n## Output\n- styled_landing_page.html\n- styled_email_template.html\n- social_media_templates.json\n- brand_guidelines.json\n\n## Cost: ~$0.02-0.04 per application",
+        "height": 520,
+        "width": 380
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apply-design",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Design Application Request",
+      "webhookId": "apply-design-webhook",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and prepare design application\nconst input = $input.first().json.body || $input.first().json;\n\nconst productId = input.productId;\nconst design = input.design;\n\nif (!productId) {\n  throw new Error('productId is required');\n}\n\nif (!design) {\n  throw new Error('design object is required');\n}\n\n// Extract design components\nconst colors = design.colors || {\n  primary: '#2563eb',\n  secondary: '#1e40af',\n  accent: '#3b82f6',\n  bg: '#f8fafc',\n  text: '#1e293b'\n};\n\nconst fonts = design.fontConfig || {\n  heading: 'Inter',\n  body: 'Inter'\n};\n\nconst layout = design.layout || 'centered';\nconst theme = design.theme || 'professional';\n\n// Output directory\nconst outputDir = input.outputDir || `C:/dev/production_line/assets/marketing/${productId}`;\n\nreturn [{\n  json: {\n    productId,\n    theme,\n    colors,\n    fonts,\n    layout,\n    outputDir,\n    sessionId: `design_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    startedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Extract Design",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://localhost:3001/api/marketing/{{ $json.productId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 400],
+      "id": "fetch-marketing",
+      "name": "Fetch Existing Marketing Data",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge design with marketing data\nconst design = $('Validate & Extract Design').first().json;\nconst marketing = $input.first().json;\n\n// Landing page content (from W7 or defaults)\nconst landingPage = marketing.landing_page || {\n  hero: {\n    headline: 'Transform Your Life Today',\n    subheadline: 'Discover the secrets that top performers use',\n    cta: 'Get Started Now'\n  },\n  problem: {\n    pain_points: [\n      'Struggling to stay productive',\n      'Overwhelmed by information',\n      'Not seeing results from current methods'\n    ]\n  },\n  solution: {\n    features: [\n      { title: 'Proven Framework', description: 'Step-by-step system that works' },\n      { title: 'Expert Guidance', description: 'Learn from industry leaders' },\n      { title: 'Immediate Results', description: 'See changes from day one' }\n    ]\n  },\n  cta: {\n    headline: 'Ready to Transform?',\n    subtext: 'Join thousands who have already changed their lives',\n    button_text: 'Get Instant Access'\n  }\n};\n\n// Social posts\nconst socialPosts = marketing.social_posts || [];\n\n// Email sequences\nconst emailSequences = marketing.email_sequences || [];\n\nreturn [{\n  json: {\n    ...design,\n    landingPage,\n    socialPosts,\n    emailSequences,\n    hasExistingContent: !!marketing.landing_page\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 400],
+      "id": "merge-data",
+      "name": "Merge Design + Content",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate styled landing page HTML\nconst data = $input.first().json;\nconst { colors, fonts, layout, landingPage, productId } = data;\n\n// Google Fonts import\nconst fontImport = `@import url('https://fonts.googleapis.com/css2?family=${fonts.heading.replace(/ /g, '+')}:wght@400;600;700&family=${fonts.body.replace(/ /g, '+')}:wght@400;500;600&display=swap');`;\n\n// Layout-specific styles\nconst layoutStyles = {\n  centered: 'text-align: center; max-width: 800px; margin: 0 auto;',\n  split: 'display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;',\n  fullwidth: 'width: 100%; padding: 0;',\n  minimal: 'max-width: 600px; margin: 0 auto; padding: 4rem 2rem;'\n};\n\nconst html = `<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${landingPage.hero?.headline || 'Landing Page'}</title>\n  <style>\n    ${fontImport}\n    \n    * {\n      margin: 0;\n      padding: 0;\n      box-sizing: border-box;\n    }\n    \n    body {\n      font-family: '${fonts.body}', sans-serif;\n      background-color: ${colors.bg};\n      color: ${colors.text};\n      line-height: 1.6;\n    }\n    \n    h1, h2, h3, h4 {\n      font-family: '${fonts.heading}', serif;\n      font-weight: 700;\n    }\n    \n    .hero {\n      background: linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%);\n      color: white;\n      padding: 4rem 2rem;\n      ${layoutStyles[layout]}\n    }\n    \n    .hero h1 {\n      font-size: 2.5rem;\n      margin-bottom: 1rem;\n    }\n    \n    .hero p {\n      font-size: 1.25rem;\n      opacity: 0.9;\n      margin-bottom: 2rem;\n    }\n    \n    .btn-primary {\n      display: inline-block;\n      background: white;\n      color: ${colors.primary};\n      padding: 1rem 2rem;\n      border-radius: 0.5rem;\n      font-weight: 600;\n      text-decoration: none;\n      transition: transform 0.2s, box-shadow 0.2s;\n    }\n    \n    .btn-primary:hover {\n      transform: translateY(-2px);\n      box-shadow: 0 10px 20px rgba(0,0,0,0.2);\n    }\n    \n    .problem-section {\n      padding: 4rem 2rem;\n      background: ${colors.bg};\n    }\n    \n    .problem-section h2 {\n      color: ${colors.text};\n      margin-bottom: 2rem;\n      text-align: center;\n    }\n    \n    .pain-points {\n      max-width: 600px;\n      margin: 0 auto;\n    }\n    \n    .pain-point {\n      display: flex;\n      align-items: flex-start;\n      gap: 1rem;\n      margin-bottom: 1rem;\n      padding: 1rem;\n      background: white;\n      border-radius: 0.5rem;\n      box-shadow: 0 2px 4px rgba(0,0,0,0.05);\n    }\n    \n    .pain-point .icon {\n      color: #ef4444;\n      font-size: 1.25rem;\n    }\n    \n    .solution-section {\n      padding: 4rem 2rem;\n      background: ${colors.accent}15;\n    }\n    \n    .solution-section h2 {\n      text-align: center;\n      color: ${colors.text};\n      margin-bottom: 2rem;\n    }\n    \n    .features {\n      display: grid;\n      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));\n      gap: 1.5rem;\n      max-width: 1000px;\n      margin: 0 auto;\n    }\n    \n    .feature {\n      background: white;\n      padding: 1.5rem;\n      border-radius: 0.75rem;\n      box-shadow: 0 4px 6px rgba(0,0,0,0.05);\n    }\n    \n    .feature .icon-wrap {\n      width: 3rem;\n      height: 3rem;\n      background: ${colors.primary}20;\n      border-radius: 50%;\n      display: flex;\n      align-items: center;\n      justify-content: center;\n      margin-bottom: 1rem;\n      color: ${colors.primary};\n    }\n    \n    .feature h3 {\n      color: ${colors.text};\n      margin-bottom: 0.5rem;\n    }\n    \n    .feature p {\n      color: ${colors.text}99;\n      font-size: 0.95rem;\n    }\n    \n    .cta-section {\n      background: linear-gradient(135deg, ${colors.secondary} 0%, ${colors.primary} 100%);\n      color: white;\n      padding: 4rem 2rem;\n      text-align: center;\n    }\n    \n    .cta-section h2 {\n      margin-bottom: 0.5rem;\n    }\n    \n    .cta-section p {\n      opacity: 0.9;\n      margin-bottom: 2rem;\n    }\n    \n    .btn-cta {\n      display: inline-block;\n      background: ${colors.accent};\n      color: white;\n      padding: 1rem 2.5rem;\n      border-radius: 0.5rem;\n      font-weight: 600;\n      font-size: 1.1rem;\n      text-decoration: none;\n      transition: transform 0.2s, box-shadow 0.2s;\n    }\n    \n    .btn-cta:hover {\n      transform: translateY(-2px);\n      box-shadow: 0 10px 30px rgba(0,0,0,0.3);\n    }\n    \n    @media (max-width: 768px) {\n      .hero h1 { font-size: 1.75rem; }\n      .hero p { font-size: 1rem; }\n      .features { grid-template-columns: 1fr; }\n    }\n  </style>\n</head>\n<body>\n  <!-- Hero Section -->\n  <section class=\"hero\">\n    <h1>${landingPage.hero?.headline || 'Your Headline Here'}</h1>\n    <p>${landingPage.hero?.subheadline || 'Your compelling subheadline'}</p>\n    <a href=\"#\" class=\"btn-primary\">${landingPage.hero?.cta || 'Get Started'}</a>\n  </section>\n  \n  <!-- Problem Section -->\n  <section class=\"problem-section\">\n    <h2>The Problem</h2>\n    <div class=\"pain-points\">\n      ${(landingPage.problem?.pain_points || []).map(point => `\n      <div class=\"pain-point\">\n        <span class=\"icon\">✗</span>\n        <span>${point}</span>\n      </div>`).join('')}\n    </div>\n  </section>\n  \n  <!-- Solution Section -->\n  <section class=\"solution-section\">\n    <h2>The Solution</h2>\n    <div class=\"features\">\n      ${(landingPage.solution?.features || []).map(f => `\n      <div class=\"feature\">\n        <div class=\"icon-wrap\">✓</div>\n        <h3>${f.title}</h3>\n        <p>${f.description}</p>\n      </div>`).join('')}\n    </div>\n  </section>\n  \n  <!-- CTA Section -->\n  <section class=\"cta-section\">\n    <h2>${landingPage.cta?.headline || 'Ready to Start?'}</h2>\n    <p>${landingPage.cta?.subtext || 'Join us today'}</p>\n    <a href=\"#\" class=\"btn-cta\">${landingPage.cta?.button_text || 'Buy Now'}</a>\n  </section>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    ...data,\n    generatedHtml: html,\n    htmlLength: html.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 400],
+      "id": "generate-html",
+      "name": "Generate Styled HTML",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate brand guidelines JSON\nconst data = $input.first().json;\nconst { colors, fonts, layout, theme, productId } = data;\n\nconst brandGuidelines = {\n  productId,\n  theme,\n  generatedAt: new Date().toISOString(),\n  \n  colors: {\n    primary: colors.primary,\n    secondary: colors.secondary,\n    accent: colors.accent,\n    background: colors.bg,\n    text: colors.text,\n    \n    // Computed variants\n    primaryLight: colors.primary + '20',\n    primaryDark: colors.secondary,\n    accentLight: colors.accent + '15'\n  },\n  \n  typography: {\n    headingFont: fonts.heading,\n    bodyFont: fonts.body,\n    fontImportUrl: `https://fonts.googleapis.com/css2?family=${fonts.heading.replace(/ /g, '+')}:wght@400;600;700&family=${fonts.body.replace(/ /g, '+')}:wght@400;500;600&display=swap`,\n    \n    sizes: {\n      h1: '2.5rem',\n      h2: '2rem',\n      h3: '1.5rem',\n      body: '1rem',\n      small: '0.875rem'\n    }\n  },\n  \n  layout: {\n    style: layout,\n    maxWidth: layout === 'minimal' ? '600px' : '1200px',\n    containerPadding: '2rem'\n  },\n  \n  buttons: {\n    primary: {\n      background: colors.primary,\n      color: '#ffffff',\n      hoverBackground: colors.secondary,\n      borderRadius: '0.5rem',\n      padding: '1rem 2rem'\n    },\n    secondary: {\n      background: 'transparent',\n      color: colors.primary,\n      border: `2px solid ${colors.primary}`,\n      hoverBackground: colors.primary + '10',\n      borderRadius: '0.5rem',\n      padding: '1rem 2rem'\n    },\n    cta: {\n      background: colors.accent,\n      color: '#ffffff',\n      hoverBackground: colors.primary,\n      borderRadius: '0.5rem',\n      padding: '1rem 2.5rem',\n      fontSize: '1.1rem'\n    }\n  },\n  \n  socialMediaColors: {\n    twitter: { overlay: colors.primary, textColor: '#ffffff' },\n    linkedin: { overlay: colors.secondary, textColor: '#ffffff' },\n    instagram: { gradient: `linear-gradient(135deg, ${colors.primary}, ${colors.accent})`, textColor: '#ffffff' },\n    facebook: { overlay: colors.primary, textColor: '#ffffff' }\n  }\n};\n\nreturn [{\n  json: {\n    ...data,\n    brandGuidelines\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 400],
+      "id": "generate-guidelines",
+      "name": "Generate Brand Guidelines",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "jsCode": "// Save all generated assets to local files\nconst fs = require('fs');\nconst path = require('path');\n\nconst data = $input.first().json;\nconst { productId, outputDir, generatedHtml, brandGuidelines } = data;\n\n// Ensure output directory exists\nconst dir = outputDir || `C:/dev/production_line/assets/marketing/${productId}`;\nif (!fs.existsSync(dir)) {\n  fs.mkdirSync(dir, { recursive: true });\n}\n\n// Save styled landing page HTML\nconst htmlPath = path.join(dir, 'styled_landing_page.html');\nfs.writeFileSync(htmlPath, generatedHtml);\n\n// Save brand guidelines\nconst guidelinesPath = path.join(dir, 'brand_guidelines.json');\nfs.writeFileSync(guidelinesPath, JSON.stringify(brandGuidelines, null, 2));\n\n// Save design application record\nconst recordPath = path.join(dir, 'design_applied.json');\nconst record = {\n  productId,\n  appliedAt: new Date().toISOString(),\n  theme: data.theme,\n  colors: data.colors,\n  fonts: data.fonts,\n  layout: data.layout,\n  outputFiles: [\n    htmlPath,\n    guidelinesPath\n  ]\n};\nfs.writeFileSync(recordPath, JSON.stringify(record, null, 2));\n\nreturn [{\n  json: {\n    success: true,\n    productId,\n    outputDir: dir,\n    files: {\n      landingPage: htmlPath,\n      brandGuidelines: guidelinesPath,\n      designRecord: recordPath\n    },\n    message: 'Design applied successfully'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 400],
+      "id": "save-files",
+      "name": "Save to Local File",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3001/api/pipeline/complete",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"productId\": \"{{ $json.productId }}\",\n  \"workflowId\": \"W7B\",\n  \"status\": \"complete\",\n  \"outputFiles\": {{ JSON.stringify($json.files) }},\n  \"message\": \"{{ $json.message }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1860, 400],
+      "id": "notify-control-center",
+      "name": "Notify Control Center",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2080, 400],
+      "id": "respond",
+      "name": "Respond",
+      "disabled": false
+    }
+  ],
+  "connections": {
+    "Design Application Request": {
+      "main": [[{ "node": "Validate & Extract Design", "type": "main", "index": 0 }]]
+    },
+    "Validate & Extract Design": {
+      "main": [[{ "node": "Fetch Existing Marketing Data", "type": "main", "index": 0 }]]
+    },
+    "Fetch Existing Marketing Data": {
+      "main": [[{ "node": "Merge Design + Content", "type": "main", "index": 0 }]]
+    },
+    "Merge Design + Content": {
+      "main": [[{ "node": "Generate Styled HTML", "type": "main", "index": 0 }]]
+    },
+    "Generate Styled HTML": {
+      "main": [[{ "node": "Generate Brand Guidelines", "type": "main", "index": 0 }]]
+    },
+    "Generate Brand Guidelines": {
+      "main": [[{ "node": "Save to Local File", "type": "main", "index": 0 }]]
+    },
+    "Save to Local File": {
+      "main": [[{ "node": "Notify Control Center", "type": "main", "index": 0 }]]
+    },
+    "Notify Control Center": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": true
+}

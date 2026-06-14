@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Customer Success Playbooks
+
+name: customer-success-playbooks
+description: Customer success operating playbooks, renewal guides, and adoption procedures
+artifact_type: documentation
+tool_type: customer-success
+language: markdown
+
+queries:
+  - query: '"customer success playbook" extension:md'
+    label: cs-playbook
+  - query: '"renewal playbook" extension:md'
+    label: renewal-playbook
+  - query: '"adoption guide" "customer" extension:md'
+    label: adoption-guide
+
+validation:
+  min_size: 170
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)customer|renewal|adoption|playbook|success plan|escalation'
+
+metadata:
+  framework: customer-success
+  default_category: support-doc

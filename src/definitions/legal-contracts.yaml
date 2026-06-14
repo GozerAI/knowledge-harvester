@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Legal Contracts
+
+name: legal-contracts
+description: Contracts, service agreements, DPAs, and legal operating documents
+artifact_type: documentation
+tool_type: legal
+language: markdown
+
+queries:
+  - query: '"master service agreement" extension:md'
+    label: msa-docs
+  - query: '"statement of work" extension:md'
+    label: sow-docs
+  - query: '"data processing agreement" extension:md'
+    label: dpa-docs
+
+validation:
+  min_size: 220
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)agreement|contract|statement of work|governing law|termination|liability'
+
+metadata:
+  framework: legal
+  default_category: legal-doc

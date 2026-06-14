@@ -1,0 +1,279 @@
+{
+  "name": "W12: Ebook Assembler",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W12: Ebook Assembler\n\n## USES N8N DATA TABLES\n\nThis workflow:\n- Reads chapters from **chapters_data** table\n- Reads outline metadata from **outlines_data** table\n- Assembles complete Markdown document\n- Saves asset record to **assets_data** table\n- Writes final .md file to local disk\n\n## SETUP REQUIRED\nCreate Data Table 'assets_data' with columns:\n- asset_id (text)\n- outline_id (text)\n- title (text)\n- subtitle (text)\n- format (text)\n- total_words (number)\n- total_sections (number)\n- estimated_pages (number)\n- file_path (text)\n- status (text)\n\n## Output Files\n- C:/dev/production_line/assets/ebooks/{title}.md\n\n## Cost: ~$0.01 (minimal processing)",
+        "height": 500,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assembler",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Assembler Request",
+      "webhookId": "assembler-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\n\nconst outlineId = input.outline_id;\nconst chaptersData = input.chapters_data || null;\n\nif (!outlineId && !chaptersData) {\n  throw new Error('Must provide outline_id or chapters_data');\n}\n\nconst frontMatter = {\n  include_title_page: input.front_matter?.include_title_page !== false,\n  include_copyright: input.front_matter?.include_copyright !== false,\n  include_toc: input.front_matter?.include_toc !== false,\n  copyright_year: input.front_matter?.copyright_year || new Date().getFullYear(),\n  copyright_holder: input.front_matter?.copyright_holder || 'Author',\n  publisher: input.front_matter?.publisher || 'Self-Published'\n};\n\nconst backMatter = {\n  include_about_author: input.back_matter?.include_about_author || false,\n  about_author_text: input.back_matter?.about_author_text || '',\n  include_cta: input.back_matter?.include_cta !== false,\n  cta_headline: input.back_matter?.cta_headline || 'Want More?',\n  cta_text: input.back_matter?.cta_text || '',\n  cta_url: input.back_matter?.cta_url || ''\n};\n\nreturn [{\n  json: {\n    outline_id: outlineId,\n    chapters_data: chaptersData,\n    front_matter: frontMatter,\n    back_matter: backMatter,\n    callback_workflow: input.callback_workflow || null,\n    session_id: `assemble_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "has-chapters", "leftValue": "={{ $json.chapters_data }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 400],
+      "id": "check-chapters-data",
+      "name": "Has Chapters Data?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": { "__rl": true, "value": "chapters_data", "mode": "list" },
+        "filters": {
+          "conditions": [
+            { "column": "outline_id", "value": "={{ $('Validate & Configure').first().json.outline_id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [980, 500],
+      "id": "fetch-chapters",
+      "name": "Get Chapters from Table"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": { "__rl": true, "value": "outlines_data", "mode": "list" },
+        "filters": {
+          "conditions": [
+            { "column": "outline_id", "value": "={{ $('Validate & Configure').first().json.outline_id }}" }
+          ]
+        },
+        "options": { "limit": 1 }
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [980, 620],
+      "id": "fetch-outline-metadata",
+      "name": "Get Outline from Table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Validate & Configure').first().json;\nconst chapters = config.chapters_data || [];\n\nreturn [{\n  json: {\n    ...config,\n    outline: {},\n    chapters: chapters\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 300],
+      "id": "use-provided-data",
+      "name": "Use Provided Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Validate & Configure').first().json;\nconst chaptersItems = $('Get Chapters from Table').all();\nconst outlineItems = $('Get Outline from Table').all();\n\nlet chapters = chaptersItems.map(item => item.json);\nlet outline = outlineItems.length > 0 ? outlineItems[0].json : {};\n\nreturn [{\n  json: {\n    ...config,\n    outline: outline,\n    chapters: chapters\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 500],
+      "id": "merge-fetched-data",
+      "name": "Merge Fetched Data"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1420, 400],
+      "id": "merge-paths",
+      "name": "Merge Paths"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst config = data;\nconst outline = data.outline || {};\nlet chapters = data.chapters || [];\n\nchapters = chapters.sort((a, b) => (a.section_number || 0) - (b.section_number || 0));\n\nconst title = outline.title || 'Untitled Ebook';\nconst subtitle = outline.subtitle || '';\nconst format = outline.format || 'ebook';\n\nconst totalWords = chapters.reduce((sum, c) => sum + (c.word_count || 0), 0);\nconst totalSections = chapters.length;\nconst estimatedPages = Math.ceil(totalWords / 250);\nconst estimatedReadTime = Math.ceil(totalWords / 200);\n\nconst toc = chapters.map(c => ({\n  number: c.section_number,\n  title: c.title,\n  type: c.type\n}));\n\nconst pageBreak = '\\n\\n---\\n\\n';\nlet document = '';\n\nif (config.front_matter.include_title_page) {\n  document += `# ${title}\\n\\n`;\n  if (subtitle) document += `### ${subtitle}\\n\\n`;\n  document += `\\n*${estimatedPages} pages • ${estimatedReadTime} minute read*\\n\\n`;\n  document += pageBreak;\n}\n\nif (config.front_matter.include_copyright) {\n  document += `## Copyright\\n\\n`;\n  document += `© ${config.front_matter.copyright_year} ${config.front_matter.copyright_holder}. All rights reserved.\\n\\n`;\n  document += `Published by ${config.front_matter.publisher}\\n\\n`;\n  document += `No part of this publication may be reproduced, distributed, or transmitted in any form without prior written permission.\\n\\n`;\n  document += pageBreak;\n}\n\nif (config.front_matter.include_toc) {\n  document += `## Table of Contents\\n\\n`;\n  toc.forEach(item => {\n    const prefix = item.type === 'introduction' || item.type === 'conclusion' ? '' : `Chapter ${item.number}: `;\n    document += `- [${prefix}${item.title}](#chapter-${item.number})\\n`;\n  });\n  document += pageBreak;\n}\n\nchapters.forEach((chapter, index) => {\n  document += `<a name=\"chapter-${chapter.section_number}\"></a>\\n\\n`;\n  document += chapter.content || `## ${chapter.title}\\n\\n[Content not available]`;\n  document += '\\n\\n';\n  if (index < chapters.length - 1) {\n    document += pageBreak;\n  }\n});\n\nif (config.back_matter.include_about_author && config.back_matter.about_author_text) {\n  document += pageBreak;\n  document += `## About the Author\\n\\n`;\n  document += config.back_matter.about_author_text;\n  document += '\\n\\n';\n}\n\nif (config.back_matter.include_cta && config.back_matter.cta_text) {\n  document += pageBreak;\n  document += `## ${config.back_matter.cta_headline}\\n\\n`;\n  document += config.back_matter.cta_text;\n  if (config.back_matter.cta_url) {\n    document += `\\n\\n**[Click here to learn more](${config.back_matter.cta_url})**\\n\\n`;\n  }\n}\n\ndocument += `\\n\\n<!-- \\nGenerated: ${new Date().toISOString()}\\nTotal Words: ${totalWords}\\nSections: ${totalSections}\\nSession: ${config.session_id}\\nGenerated by Production Line Workflow System\\n-->\\n`;\n\nreturn [{\n  json: {\n    ...config,\n    assembled_document: document,\n    metadata: {\n      title: title,\n      subtitle: subtitle,\n      format: format,\n      total_words: totalWords,\n      total_sections: totalSections,\n      estimated_pages: estimatedPages,\n      estimated_read_time_minutes: estimatedReadTime,\n      toc: toc\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 400],
+      "id": "assemble-document",
+      "name": "Assemble Document"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst metadata = data.metadata;\n\nconst safeTitle = metadata.title\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-|-$/g, '')\n  .substring(0, 50);\n\nconst timestamp = new Date().toISOString().split('T')[0];\nconst baseFilename = `${safeTitle}_${timestamp}`;\n\nconst outputDir = 'C:/dev/production_line/assets/ebooks';\nconst markdownPath = `${outputDir}/${baseFilename}.md`;\n\nconst assetId = `ebook_${data.session_id}`;\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(data.started_at);\n\nreturn [{\n  json: {\n    asset_id: assetId,\n    outline_id: data.outline_id,\n    session_id: data.session_id,\n    markdown_content: data.assembled_document,\n    title: metadata.title,\n    subtitle: metadata.subtitle,\n    format: metadata.format,\n    total_words: metadata.total_words,\n    total_sections: metadata.total_sections,\n    estimated_pages: metadata.estimated_pages,\n    estimated_read_time: metadata.estimated_read_time_minutes,\n    toc: JSON.stringify(metadata.toc),\n    file_path: markdownPath,\n    output_directory: outputDir,\n    started_at: data.started_at,\n    completed_at: completedAt,\n    duration_seconds: Math.round(durationMs / 1000),\n    callback_workflow: data.callback_workflow,\n    status: 'completed'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 400],
+      "id": "prepare-files",
+      "name": "Prepare Asset Record"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $json.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2080, 300],
+      "id": "write-ebook-file",
+      "name": "Write Ebook File"
+    },
+    {
+      "parameters": {
+        "jsCode": "const assetData = $('Prepare Asset Record').first().json;\n\nreturn [{\n  json: {\n    data: Buffer.from(assetData.markdown_content, 'utf-8'),\n    fileName: assetData.file_path,\n    mimeType: 'text/markdown'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 200],
+      "id": "prepare-binary",
+      "name": "Prepare Binary Data"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": { "__rl": true, "value": "assets_data", "mode": "list" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "asset_id": "={{ $('Prepare Asset Record').first().json.asset_id }}",
+            "outline_id": "={{ $('Prepare Asset Record').first().json.outline_id }}",
+            "title": "={{ $('Prepare Asset Record').first().json.title }}",
+            "subtitle": "={{ $('Prepare Asset Record').first().json.subtitle }}",
+            "format": "={{ $('Prepare Asset Record').first().json.format }}",
+            "total_words": "={{ $('Prepare Asset Record').first().json.total_words }}",
+            "total_sections": "={{ $('Prepare Asset Record').first().json.total_sections }}",
+            "estimated_pages": "={{ $('Prepare Asset Record').first().json.estimated_pages }}",
+            "file_path": "={{ $('Prepare Asset Record').first().json.file_path }}",
+            "status": "={{ $('Prepare Asset Record').first().json.status }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [2080, 400],
+      "id": "save-to-data-table",
+      "name": "Save to Data Table"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "has-callback", "leftValue": "={{ $('Prepare Asset Record').first().json.callback_workflow }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2300, 400],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Prepare Asset Record').first().json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"asset_id\": \"{{ $('Prepare Asset Record').first().json.asset_id }}\",\n  \"title\": \"{{ $('Prepare Asset Record').first().json.title }}\",\n  \"total_words\": {{ $('Prepare Asset Record').first().json.total_words }},\n  \"file_path\": \"{{ $('Prepare Asset Record').first().json.file_path }}\"\n}",
+        "options": {"timeout": 5000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2520, 300],
+      "id": "trigger-callback",
+      "name": "Trigger Callback",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Prepare Asset Record').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    asset_id: data.asset_id,\n    title: data.title,\n    subtitle: data.subtitle,\n    stats: {\n      total_words: data.total_words,\n      total_sections: data.total_sections,\n      estimated_pages: data.estimated_pages,\n      estimated_read_time_minutes: data.estimated_read_time\n    },\n    file_path: data.file_path,\n    storage: 'n8n_data_table',\n    duration_seconds: data.duration_seconds,\n    ready_for_marketplace: true,\n    callback_triggered: !!data.callback_workflow,\n    next_steps: [\n      `Ebook saved to: ${data.file_path}`,\n      'Asset record saved to n8n Data Table',\n      'Convert to PDF using pandoc (optional)',\n      'Upload to marketplace via W18 workflow'\n    ]\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2740, 400],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2960, 400],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "connections": {
+    "Assembler Request": {"main": [[{"node": "Validate & Configure", "type": "main", "index": 0}]]},
+    "Validate & Configure": {"main": [[{"node": "Has Chapters Data?", "type": "main", "index": 0}]]},
+    "Has Chapters Data?": {
+      "main": [
+        [{"node": "Use Provided Data", "type": "main", "index": 0}],
+        [{"node": "Get Chapters from Table", "type": "main", "index": 0}, {"node": "Get Outline from Table", "type": "main", "index": 0}]
+      ]
+    },
+    "Get Chapters from Table": {"main": [[{"node": "Merge Fetched Data", "type": "main", "index": 0}]]},
+    "Get Outline from Table": {"main": [[{"node": "Merge Fetched Data", "type": "main", "index": 0}]]},
+    "Use Provided Data": {"main": [[{"node": "Merge Paths", "type": "main", "index": 0}]]},
+    "Merge Fetched Data": {"main": [[{"node": "Merge Paths", "type": "main", "index": 0}]]},
+    "Merge Paths": {"main": [[{"node": "Assemble Document", "type": "main", "index": 0}]]},
+    "Assemble Document": {"main": [[{"node": "Prepare Asset Record", "type": "main", "index": 0}]]},
+    "Prepare Asset Record": {"main": [[{"node": "Save to Data Table", "type": "main", "index": 0}]]},
+    "Save to Data Table": {"main": [[{"node": "Has Callback?", "type": "main", "index": 0}]]},
+    "Has Callback?": {
+      "main": [
+        [{"node": "Trigger Callback", "type": "main", "index": 0}],
+        [{"node": "Build Response", "type": "main", "index": 0}]
+      ]
+    },
+    "Trigger Callback": {"main": [[{"node": "Build Response", "type": "main", "index": 0}]]},
+    "Build Response": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": true,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "W12-data-tables-v1",
+  "meta": {"templateCredsSetupCompleted": false, "instanceId": ""},
+  "id": "UuCWvikqpLIjP9yd",
+  "tags": []
+}

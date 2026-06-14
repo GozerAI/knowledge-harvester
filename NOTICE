@@ -1,0 +1,27 @@
+Knowledge Harvester — Multi-Source Enrichment & Curation Pipeline
+==================================================================
+
+Copyright (c) 2024-2026 Chris Arsenault / 1450 Enterprises LLC
+All rights reserved.
+
+This software is dual-licensed:
+
+  - GNU Affero General Public License v3.0 or later (AGPL-3.0-or-later)
+    See LICENSE for full terms.
+
+  - Proprietary Commercial License
+    For SaaS deployment, proprietary integration, or any use that cannot
+    comply with AGPL-3.0 network-service source-disclosure obligations.
+    Contact: licensing@gozerai.com
+
+Possession of source code or binaries does NOT grant commercial rights.
+Commercial use requires a valid License ID issued by the Licensor.
+
+The Knowledge Harvester — including its 23-step enrichment pipeline, 7
+artifact-family classification, source-specific harvesters for 30+
+platforms, semantic deduplication logic, graph-discovery model, scoring
+and embedding pipeline, and autonomous refresh orchestration — is
+original work of 1450 Enterprises LLC.
+
+"Knowledge Harvester" and "1450 Enterprises" are trademarks of 1450
+Enterprises LLC.

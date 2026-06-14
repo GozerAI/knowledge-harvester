@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — Open Policy Agent
+
+name: open-policy-agent
+description: Rego policies for authorization, compliance, and deployment guardrails
+artifact_type: code_pattern
+tool_type: rego
+language: rego
+
+queries:
+  - query: 'extension:rego "package " "deny["'
+    label: opa-deny-rules
+  - query: 'extension:rego "package " "allow = "'
+    label: opa-allow-rules
+  - query: 'extension:rego "violation[" "input."'
+    label: opa-violation-policies
+
+validation:
+  min_size: 60
+  max_size: 200000
+  extensions: [rego]
+  required_patterns:
+    - 'package\s+\w'
+    - 'deny\[|allow\s*=|violation\['
+
+metadata:
+  framework: opa
+  default_category: policy-as-code

@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — gRPC Protocol Definitions
+
+name: grpc-protos
+description: gRPC protobuf service definitions and message contracts
+artifact_type: api_spec
+tool_type: grpc
+language: protobuf
+
+queries:
+  - query: 'extension:proto "syntax = ""proto3""" "service "'
+    label: grpc-service
+  - query: 'extension:proto "rpc " "message "'
+    label: grpc-rpc-message
+  - query: 'extension:proto "syntax = ""proto3""" "google.protobuf"'
+    label: grpc-google-protobuf
+
+validation:
+  min_size: 80
+  max_size: 300000
+  extensions: [proto]
+  required_patterns:
+    - 'syntax\s*=\s*"proto'
+    - 'service|rpc|message'
+
+metadata:
+  framework: grpc
+  default_category: rpc-api

@@ -1,0 +1,348 @@
+{
+  "name": "W13: Visual Asset Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W13: Visual Asset Generator\n\n## Purpose\nGenerates all visual assets for content products:\n\n### Book Assets\n- Cover designs (front, back, spine, 3D mockup)\n- Chapter header illustrations\n- Infographics from statistics\n- Concept diagrams\n- Process flowcharts\n- Quote cards\n\n### Marketing Assets (from W7)\n- Social media graphics (platform-sized)\n- Video thumbnails\n- Ad creatives\n- Landing page hero images\n- Email header images\n- Lead magnet covers\n\n## Image Providers\n- **DALL-E 3**: High-quality, creative images\n- **Midjourney** (via API): Artistic, stylized\n- **Stable Diffusion**: Fast, cost-effective\n- **Ideogram**: Text-in-image excellence\n- **Canva API**: Template-based designs\n\n## Cost: ~$0.04-0.20 per image\n\n## Output\n- Optimized images for each platform\n- Multiple sizes/formats\n- Stored in S3/local with URLs",
+        "height": 620,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "image-generator",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Image Generator Request",
+      "webhookId": "image-generator-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\n\n// Determine request type\nconst requestType = input.request_type || 'mixed'; // book_assets | marketing_assets | mixed | single\n\n// Source identifiers\nconst outlineId = input.outline_id || null;\nconst teaserPackageId = input.teaser_package_id || null;\nconst contentIds = input.content_ids || [];\n\n// Single image request\nconst singleRequest = input.single_request || null;\n\n// Image requests from W7 (marketing)\nconst marketingImageRequests = input.image_requests || [];\n\n// Book asset configuration\nconst bookAssets = {\n  generate_cover: input.book_assets?.generate_cover !== false,\n  cover_style: input.book_assets?.cover_style || 'modern', // modern, classic, minimalist, bold, artistic\n  generate_chapter_headers: input.book_assets?.generate_chapter_headers || false,\n  generate_infographics: input.book_assets?.generate_infographics || false,\n  generate_quote_cards: input.book_assets?.generate_quote_cards || false,\n  generate_3d_mockup: input.book_assets?.generate_3d_mockup !== false\n};\n\n// Marketing asset configuration\nconst marketingAssets = {\n  generate_social_graphics: input.marketing_assets?.generate_social_graphics !== false,\n  generate_thumbnails: input.marketing_assets?.generate_thumbnails !== false,\n  generate_ad_creatives: input.marketing_assets?.generate_ad_creatives || false,\n  generate_hero_image: input.marketing_assets?.generate_hero_image !== false,\n  platforms: input.marketing_assets?.platforms || ['twitter', 'linkedin', 'instagram', 'youtube']\n};\n\n// Style configuration\nconst styleConfig = {\n  // Color scheme\n  primary_color: input.style?.primary_color || '#2563eb',\n  secondary_color: input.style?.secondary_color || '#1e40af',\n  accent_color: input.style?.accent_color || '#f59e0b',\n  background_style: input.style?.background_style || 'gradient', // solid, gradient, pattern, photo\n  \n  // Typography\n  font_style: input.style?.font_style || 'modern', // modern, serif, handwritten, bold\n  \n  // Visual style\n  image_style: input.style?.image_style || 'professional', // professional, artistic, minimalist, vibrant, dark\n  illustration_style: input.style?.illustration_style || 'flat', // flat, 3d, isometric, hand-drawn, realistic\n  \n  // Brand elements\n  include_logo: input.style?.include_logo || false,\n  logo_url: input.style?.logo_url || null,\n  watermark: input.style?.watermark || false\n};\n\n// Provider preferences\nconst providers = {\n  primary: input.providers?.primary || 'dalle3', // dalle3, midjourney, stable-diffusion, ideogram\n  fallback: input.providers?.fallback || 'stable-diffusion',\n  use_templates: input.providers?.use_templates || false // Use Canva-style templates\n};\n\n// Platform size configurations\nconst platformSizes = {\n  twitter: { width: 1200, height: 675, name: 'Twitter/X' },\n  linkedin: { width: 1200, height: 627, name: 'LinkedIn' },\n  instagram_square: { width: 1080, height: 1080, name: 'Instagram Square' },\n  instagram_story: { width: 1080, height: 1920, name: 'Instagram Story' },\n  facebook: { width: 1200, height: 630, name: 'Facebook' },\n  youtube_thumbnail: { width: 1280, height: 720, name: 'YouTube Thumbnail' },\n  pinterest: { width: 1000, height: 1500, name: 'Pinterest' },\n  tiktok: { width: 1080, height: 1920, name: 'TikTok' },\n  ebook_cover: { width: 1600, height: 2560, name: 'Ebook Cover' },\n  ebook_cover_3d: { width: 1400, height: 1800, name: 'Ebook 3D Mockup' },\n  chapter_header: { width: 1400, height: 400, name: 'Chapter Header' },\n  infographic: { width: 800, height: 2000, name: 'Infographic' },\n  quote_card: { width: 1080, height: 1080, name: 'Quote Card' },\n  hero_image: { width: 1920, height: 1080, name: 'Hero Image' },\n  ad_square: { width: 1080, height: 1080, name: 'Ad Square' },\n  ad_landscape: { width: 1200, height: 628, name: 'Ad Landscape' }\n};\n\n// Storage configuration\nconst storage = {\n  provider: input.storage?.provider || 'local',\n  bucket: input.storage?.bucket || 'content-images',\n  folder: input.storage?.folder || 'generated'\n};\n\nreturn [{\n  json: {\n    request_type: requestType,\n    outline_id: outlineId,\n    teaser_package_id: teaserPackageId,\n    content_ids: contentIds,\n    single_request: singleRequest,\n    marketing_image_requests: marketingImageRequests,\n    book_assets: bookAssets,\n    marketing_assets: marketingAssets,\n    style: styleConfig,\n    providers: providers,\n    platform_sizes: platformSizes,\n    storage: storage,\n    callback_workflow: input.callback_workflow || null,\n    session_id: `images_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "has-outline", "leftValue": "={{ $json.outline_id }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 400],
+      "id": "check-outline",
+      "name": "Has Outline?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {"__rl": true, "value": "appXXXXXXXXXXXXXX", "mode": "id"},
+        "table": {"__rl": true, "value": "tblOutlines", "mode": "id"},
+        "id": "={{ $('Validate & Configure').first().json.outline_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [980, 300],
+      "id": "fetch-outline",
+      "name": "Fetch Outline",
+      "credentials": {"airtableTokenApi": {"id": "YOUR_AIRTABLE_CREDENTIAL", "name": "Airtable"}}
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {"__rl": true, "value": "appXXXXXXXXXXXXXX", "mode": "id"},
+        "table": {"__rl": true, "value": "tblResearch", "mode": "id"},
+        "id": "={{ $('Fetch Outline').first().json.Research?.[0] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [1200, 300],
+      "id": "fetch-research",
+      "name": "Fetch Research",
+      "credentials": {"airtableTokenApi": {"id": "YOUR_AIRTABLE_CREDENTIAL", "name": "Airtable"}}
+    },
+    {
+      "parameters": {"mode": "combine", "combineBy": "combineAll", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1420, 400],
+      "id": "merge-data",
+      "name": "Merge Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build comprehensive image generation queue\nconst config = $('Validate & Configure').first().json;\nlet outline = null;\nlet research = null;\n\ntry {\n  outline = $('Fetch Outline').first()?.json || null;\n  research = $('Fetch Research').first()?.json || null;\n} catch (e) {}\n\nconst imageQueue = [];\nconst { book_assets, marketing_assets, style, platform_sizes, marketing_image_requests } = config;\n\n// Parse outline data\nlet title = 'Untitled';\nlet subtitle = '';\nlet sections = [];\nlet keyThemes = [];\n\nif (outline) {\n  title = outline.Title || 'Untitled';\n  subtitle = outline.Subtitle || '';\n  try { sections = JSON.parse(outline.Sections || '[]'); } catch(e) {}\n}\n\nif (research) {\n  try { keyThemes = JSON.parse(research['Key Themes'] || '[]'); } catch(e) {}\n}\n\n// Helper to build prompt with style\nconst buildPrompt = (basePrompt, imageType) => {\n  const styleModifiers = {\n    professional: 'professional, clean, corporate, polished',\n    artistic: 'artistic, creative, expressive, unique',\n    minimalist: 'minimalist, simple, clean lines, white space',\n    vibrant: 'vibrant colors, energetic, dynamic, bold',\n    dark: 'dark theme, moody, sophisticated, elegant'\n  };\n  \n  const illustrationModifiers = {\n    flat: 'flat design, 2D illustration, vector style',\n    '3d': '3D render, depth, realistic lighting',\n    isometric: 'isometric view, geometric, structured',\n    'hand-drawn': 'hand-drawn style, sketchy, organic',\n    realistic: 'photorealistic, detailed, high quality photo'\n  };\n  \n  let prompt = basePrompt;\n  prompt += `. Style: ${styleModifiers[style.image_style] || styleModifiers.professional}`;\n  prompt += `. ${illustrationModifiers[style.illustration_style] || illustrationModifiers.flat}`;\n  prompt += `. Color palette: ${style.primary_color}, ${style.secondary_color}, ${style.accent_color}`;\n  \n  if (imageType === 'cover' || imageType === 'hero') {\n    prompt += '. High resolution, print quality, no text unless specified';\n  }\n  \n  return prompt;\n};\n\n// ========== BOOK ASSETS ==========\n\nif (config.request_type === 'book_assets' || config.request_type === 'mixed') {\n  \n  // 1. Book Cover\n  if (book_assets.generate_cover && outline) {\n    const coverStyles = {\n      modern: 'modern design, geometric shapes, bold typography space, contemporary',\n      classic: 'classic book design, elegant, timeless, traditional publishing style',\n      minimalist: 'minimalist cover, single focal element, lots of white space, subtle',\n      bold: 'bold graphic design, striking imagery, high contrast, attention-grabbing',\n      artistic: 'artistic cover, painterly, unique illustration, creative interpretation'\n    };\n    \n    imageQueue.push({\n      id: `cover_front_${Date.now()}`,\n      type: 'book_cover',\n      subtype: 'front',\n      title: title,\n      prompt: buildPrompt(\n        `Book cover design for \"${title}\"${subtitle ? `: ${subtitle}` : ''}. ` +\n        `Theme: ${keyThemes.slice(0, 3).join(', ')}. ` +\n        `${coverStyles[book_assets.cover_style] || coverStyles.modern}. ` +\n        `Leave clear space for title text at top. Professional ebook cover.`,\n        'cover'\n      ),\n      size: platform_sizes.ebook_cover,\n      priority: 1\n    });\n    \n    // 3D Mockup version\n    if (book_assets.generate_3d_mockup) {\n      imageQueue.push({\n        id: `cover_3d_${Date.now()}`,\n        type: 'book_cover',\n        subtype: '3d_mockup',\n        title: title,\n        prompt: buildPrompt(\n          `3D book mockup render of ebook. Clean white or gradient background. ` +\n          `Book slightly angled showing cover and spine. Soft shadows. ` +\n          `Professional product photography style. The cover shows: ${keyThemes[0] || 'professional content'}.`,\n          'cover'\n        ),\n        size: platform_sizes.ebook_cover_3d,\n        priority: 2\n      });\n    }\n  }\n  \n  // 2. Chapter Headers\n  if (book_assets.generate_chapter_headers && sections.length > 0) {\n    sections.forEach((section, index) => {\n      if (section.type !== 'introduction' && section.type !== 'conclusion') {\n        imageQueue.push({\n          id: `chapter_header_${section.number}_${Date.now()}`,\n          type: 'chapter_header',\n          chapter_number: section.number,\n          chapter_title: section.title,\n          prompt: buildPrompt(\n            `Chapter header illustration for \"${section.title}\". ` +\n            `Wide banner format. Subtle, not overpowering. ` +\n            `Visual metaphor for: ${(section.key_points || [])[0] || section.title}. ` +\n            `Decorative horizontal design element.`,\n            'chapter'\n          ),\n          size: platform_sizes.chapter_header,\n          priority: 3\n        });\n      }\n    });\n  }\n  \n  // 3. Quote Cards\n  if (book_assets.generate_quote_cards && research) {\n    let quotes = [];\n    try { quotes = JSON.parse(research.Quotes || '[]'); } catch(e) {}\n    \n    quotes.slice(0, 5).forEach((quote, index) => {\n      imageQueue.push({\n        id: `quote_card_${index}_${Date.now()}`,\n        type: 'quote_card',\n        quote_text: quote.text?.substring(0, 150) || '',\n        quote_author: quote.author || 'Expert',\n        prompt: buildPrompt(\n          `Quote card background design. Elegant, subtle pattern or gradient. ` +\n          `Space for overlaid text. Sophisticated and professional. ` +\n          `Theme relates to: ${keyThemes[0] || 'business'}. ` +\n          `No text in the image - just beautiful background.`,\n          'quote'\n        ),\n        size: platform_sizes.quote_card,\n        priority: 4,\n        overlay_text: `\"${quote.text?.substring(0, 100)}...\"\\n— ${quote.author || 'Expert'}`\n      });\n    });\n  }\n  \n  // 4. Infographics from Statistics\n  if (book_assets.generate_infographics && research) {\n    let statistics = [];\n    try { statistics = JSON.parse(research.Statistics || '[]'); } catch(e) {}\n    \n    if (statistics.length >= 3) {\n      imageQueue.push({\n        id: `infographic_stats_${Date.now()}`,\n        type: 'infographic',\n        subtype: 'statistics',\n        prompt: buildPrompt(\n          `Infographic background design for displaying statistics. ` +\n          `Clean layout with space for 4-6 data points. ` +\n          `Professional data visualization style. ` +\n          `Vertical format. Icons and visual elements for numbers. ` +\n          `Topic: ${keyThemes[0] || 'data'}. No actual text, just design framework.`,\n          'infographic'\n        ),\n        size: platform_sizes.infographic,\n        priority: 5,\n        data_overlay: statistics.slice(0, 5).map(s => s.stat)\n      });\n    }\n  }\n}\n\n// ========== MARKETING ASSETS ==========\n\nif (config.request_type === 'marketing_assets' || config.request_type === 'mixed') {\n  \n  // 1. Process W7 Image Requests\n  if (marketing_image_requests && marketing_image_requests.length > 0) {\n    marketing_image_requests.forEach((req, index) => {\n      const sizeKey = req.type === 'youtube_thumbnail' ? 'youtube_thumbnail' :\n                      req.type === 'hero_image' ? 'hero_image' :\n                      req.platform === 'instagram' ? 'instagram_square' :\n                      req.platform === 'twitter' ? 'twitter' :\n                      req.platform === 'linkedin' ? 'linkedin' :\n                      req.platform === 'tiktok' ? 'tiktok' :\n                      'twitter';\n      \n      imageQueue.push({\n        id: `marketing_${req.type}_${index}_${Date.now()}`,\n        type: 'marketing',\n        subtype: req.type,\n        platform: req.platform || 'general',\n        prompt: buildPrompt(\n          `${req.direction}. ` +\n          `For ${req.platform || 'social media'}. ` +\n          `Eye-catching, scroll-stopping visual. ` +\n          `Related to: ${title}. ` +\n          `Professional marketing graphic.`,\n          'marketing'\n        ),\n        size: platform_sizes[sizeKey] || platform_sizes.twitter,\n        priority: 2,\n        original_direction: req.direction\n      });\n    });\n  }\n  \n  // 2. Hero Image for Landing Page\n  if (marketing_assets.generate_hero_image && outline) {\n    imageQueue.push({\n      id: `hero_landing_${Date.now()}`,\n      type: 'marketing',\n      subtype: 'hero_image',\n      prompt: buildPrompt(\n        `Hero image for landing page promoting \"${title}\". ` +\n        `Wide format, inspiring and aspirational. ` +\n        `Shows transformation or success related to: ${keyThemes.slice(0, 2).join(', ')}. ` +\n        `Professional, high-end feel. Space for text overlay on left or right third.`,\n        'hero'\n      ),\n      size: platform_sizes.hero_image,\n      priority: 1\n    });\n  }\n  \n  // 3. YouTube Thumbnails\n  if (marketing_assets.generate_thumbnails) {\n    // Main video thumbnail\n    imageQueue.push({\n      id: `thumbnail_main_${Date.now()}`,\n      type: 'marketing',\n      subtype: 'youtube_thumbnail',\n      prompt: buildPrompt(\n        `YouTube thumbnail for video about \"${title}\". ` +\n        `High contrast, attention-grabbing. ` +\n        `Emotional impact, curiosity-inducing. ` +\n        `Bold visual with space for 3-5 words of text. ` +\n        `Trending YouTube style, click-worthy.`,\n        'thumbnail'\n      ),\n      size: platform_sizes.youtube_thumbnail,\n      priority: 2\n    });\n    \n    // Shorts thumbnail\n    imageQueue.push({\n      id: `thumbnail_short_${Date.now()}`,\n      type: 'marketing',\n      subtype: 'youtube_short_thumbnail',\n      prompt: buildPrompt(\n        `Vertical thumbnail for YouTube Short about ${keyThemes[0] || title}. ` +\n        `Bold, simple, eye-catching. ` +\n        `Single focal point. Mobile-optimized viewing.`,\n        'thumbnail'\n      ),\n      size: platform_sizes.tiktok,\n      priority: 3\n    });\n  }\n  \n  // 4. Platform-Specific Social Graphics\n  if (marketing_assets.generate_social_graphics) {\n    const platforms = marketing_assets.platforms || ['twitter', 'linkedin', 'instagram'];\n    \n    platforms.forEach(platform => {\n      const sizeKey = platform === 'instagram' ? 'instagram_square' : platform;\n      \n      imageQueue.push({\n        id: `social_${platform}_${Date.now()}`,\n        type: 'marketing',\n        subtype: 'social_graphic',\n        platform: platform,\n        prompt: buildPrompt(\n          `Social media graphic for ${platform} promoting \"${title}\". ` +\n          `${platform === 'linkedin' ? 'Professional, business-focused' : ''} ` +\n          `${platform === 'instagram' ? 'Visually stunning, Instagram aesthetic' : ''} ` +\n          `${platform === 'twitter' ? 'Bold, shareable, conversation-starting' : ''} ` +\n          `Theme: ${keyThemes[0] || 'professional content'}. ` +\n          `Engaging visual that stops the scroll.`,\n          'social'\n        ),\n        size: platform_sizes[sizeKey] || platform_sizes.twitter,\n        priority: 3\n      });\n    });\n  }\n  \n  // 5. Ad Creatives\n  if (marketing_assets.generate_ad_creatives) {\n    ['ad_square', 'ad_landscape'].forEach(adType => {\n      imageQueue.push({\n        id: `ad_${adType}_${Date.now()}`,\n        type: 'marketing',\n        subtype: 'ad_creative',\n        ad_format: adType,\n        prompt: buildPrompt(\n          `Advertisement creative for \"${title}\". ` +\n          `${adType === 'ad_square' ? 'Square format for Facebook/Instagram feed ads' : 'Landscape for display network'}. ` +\n          `Clear value proposition visual. Compelling, click-inducing. ` +\n          `Professional advertising design. Space for CTA button.`,\n          'ad'\n        ),\n        size: platform_sizes[adType],\n        priority: 4\n      });\n    });\n  }\n}\n\n// ========== SINGLE REQUEST ==========\n\nif (config.request_type === 'single' && config.single_request) {\n  const req = config.single_request;\n  imageQueue.push({\n    id: `single_${Date.now()}`,\n    type: req.type || 'custom',\n    subtype: req.subtype || 'custom',\n    prompt: buildPrompt(req.prompt || req.description, req.type || 'custom'),\n    size: req.size || platform_sizes.twitter,\n    priority: 1,\n    custom: true\n  });\n}\n\n// Sort by priority\nimageQueue.sort((a, b) => a.priority - b.priority);\n\nreturn [{\n  json: {\n    ...config,\n    title: title,\n    subtitle: subtitle,\n    key_themes: keyThemes,\n    image_queue: imageQueue,\n    total_images: imageQueue.length,\n    estimated_cost: imageQueue.length * 0.04 // ~$0.04 per DALL-E image\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 400],
+      "id": "build-image-queue",
+      "name": "Build Image Queue"
+    },
+    {
+      "parameters": {
+        "content": "## IMAGE GENERATION\n\nProcess queue through selected provider:\n\n**DALL-E 3** ($0.04/image)\n- Best quality\n- Good text understanding\n- 1024x1024 native\n\n**Stable Diffusion** ($0.01/image)\n- Fast generation\n- More control\n- Variable sizes\n\n**Ideogram** ($0.05/image)\n- Best text-in-image\n- Logo/typography\n\nBatch processing with retry logic.",
+        "height": 300,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1840, 60],
+      "id": "generation-note",
+      "name": "Generation Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split queue into batches for processing\nconst data = $input.first().json;\nconst queue = data.image_queue || [];\n\n// Output each image request as separate item for parallel processing\nreturn queue.map(imageReq => ({\n  json: {\n    ...imageReq,\n    session_id: data.session_id,\n    provider: data.providers.primary,\n    fallback_provider: data.providers.fallback,\n    storage: data.storage,\n    style: data.style\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1880, 400],
+      "id": "split-queue",
+      "name": "Split Queue"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "generate",
+        "model": "dall-e-3",
+        "prompt": "={{ $json.prompt }}",
+        "options": {
+          "quality": "standard",
+          "size": "1024x1024",
+          "style": "vivid"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [2100, 400],
+      "id": "generate-dalle",
+      "name": "Generate with DALL-E",
+      "credentials": {"openAiApi": {"id": "YOUR_OPENAI_CREDENTIAL", "name": "OpenAI"}},
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process DALL-E response and prepare for storage\nconst inputData = $('Split Queue').item.json;\nconst dalleResponse = $input.item.json;\n\nlet imageUrl = null;\nlet generationSuccess = false;\nlet errorMessage = null;\n\n// Extract image URL from response\nif (dalleResponse.data && dalleResponse.data[0]) {\n  imageUrl = dalleResponse.data[0].url;\n  generationSuccess = true;\n} else if (dalleResponse.url) {\n  imageUrl = dalleResponse.url;\n  generationSuccess = true;\n} else if (dalleResponse.error) {\n  errorMessage = dalleResponse.error.message || 'Generation failed';\n}\n\n// Build filename\nconst safeId = inputData.id.replace(/[^a-z0-9_]/gi, '_');\nconst filename = `${safeId}.png`;\n\nreturn [{\n  json: {\n    ...inputData,\n    generation: {\n      success: generationSuccess,\n      provider: 'dalle3',\n      source_url: imageUrl,\n      error: errorMessage,\n      filename: filename,\n      generated_at: new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 400],
+      "id": "process-generation",
+      "name": "Process Generation"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "success", "leftValue": "={{ $json.generation.success }}", "rightValue": true, "operator": {"type": "boolean", "operation": "true", "singleValue": true}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2540, 400],
+      "id": "check-success",
+      "name": "Generation Success?"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.generation.source_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2760, 300],
+      "id": "download-image",
+      "name": "Download Image",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle failed generations - log and continue\nconst inputData = $input.first().json;\n\nreturn [{\n  json: {\n    ...inputData,\n    storage: {\n      success: false,\n      error: inputData.generation.error || 'Generation failed',\n      local_path: null,\n      public_url: null\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2760, 500],
+      "id": "handle-failure",
+      "name": "Handle Failure"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare storage record\nconst imageData = $('Process Generation').item.json;\nconst downloadResult = $input.item;\n\n// In production, save the binary data to file system or S3\n// For now, build the expected storage record\n\nconst storageConfig = imageData.storage;\nconst filename = imageData.generation.filename;\nconst folder = `${storageConfig.folder}/${imageData.session_id}`;\n\nlet storagePath, publicUrl;\n\nif (storageConfig.provider === 's3') {\n  storagePath = `s3://${storageConfig.bucket}/${folder}/${filename}`;\n  publicUrl = `https://${storageConfig.bucket}.s3.amazonaws.com/${folder}/${filename}`;\n} else {\n  storagePath = `/mnt/user-data/outputs/images/${imageData.session_id}/${filename}`;\n  publicUrl = `/api/images/${imageData.session_id}/${filename}`;\n}\n\nreturn [{\n  json: {\n    ...imageData,\n    storage: {\n      success: true,\n      provider: storageConfig.provider,\n      local_path: storagePath,\n      public_url: publicUrl,\n      filename: filename,\n      stored_at: new Date().toISOString()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2980, 300],
+      "id": "store-image",
+      "name": "Store Image"
+    },
+    {
+      "parameters": {"mode": "combine", "combineBy": "combineAll", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [3200, 400],
+      "id": "merge-results",
+      "name": "Merge Results"
+    },
+    {
+      "parameters": {"aggregate": "aggregateAllItemData", "options": {}},
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [3420, 400],
+      "id": "collect-all",
+      "name": "Collect All Images"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build final results summary\nconst config = $('Build Image Queue').first().json;\nconst allImages = $input.first().json.data || [];\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(config.started_at);\n\n// Categorize results\nconst bookAssets = allImages.filter(img => \n  ['book_cover', 'chapter_header', 'quote_card', 'infographic'].includes(img.type)\n);\n\nconst marketingAssets = allImages.filter(img => img.type === 'marketing');\n\n// Count successes and failures\nconst successful = allImages.filter(img => img.storage?.success);\nconst failed = allImages.filter(img => !img.storage?.success);\n\n// Build organized output\nconst organizedAssets = {\n  book: {\n    cover: bookAssets.filter(a => a.type === 'book_cover').map(a => ({\n      subtype: a.subtype,\n      url: a.storage?.public_url,\n      filename: a.storage?.filename\n    })),\n    chapter_headers: bookAssets.filter(a => a.type === 'chapter_header').map(a => ({\n      chapter: a.chapter_number,\n      title: a.chapter_title,\n      url: a.storage?.public_url\n    })),\n    quote_cards: bookAssets.filter(a => a.type === 'quote_card').map(a => ({\n      url: a.storage?.public_url,\n      overlay_text: a.overlay_text\n    })),\n    infographics: bookAssets.filter(a => a.type === 'infographic').map(a => ({\n      url: a.storage?.public_url,\n      data_overlay: a.data_overlay\n    }))\n  },\n  marketing: {\n    hero: marketingAssets.filter(a => a.subtype === 'hero_image').map(a => ({\n      url: a.storage?.public_url\n    })),\n    thumbnails: marketingAssets.filter(a => a.subtype?.includes('thumbnail')).map(a => ({\n      type: a.subtype,\n      url: a.storage?.public_url\n    })),\n    social: marketingAssets.filter(a => a.subtype === 'social_graphic').map(a => ({\n      platform: a.platform,\n      url: a.storage?.public_url\n    })),\n    ads: marketingAssets.filter(a => a.subtype === 'ad_creative').map(a => ({\n      format: a.ad_format,\n      url: a.storage?.public_url\n    }))\n  }\n};\n\nreturn [{\n  json: {\n    success: true,\n    session_id: config.session_id,\n    title: config.title,\n    \n    // Summary counts\n    summary: {\n      total_requested: allImages.length,\n      successful: successful.length,\n      failed: failed.length,\n      book_assets: bookAssets.length,\n      marketing_assets: marketingAssets.length\n    },\n    \n    // Organized assets\n    assets: organizedAssets,\n    \n    // All URLs for easy access\n    all_urls: successful.map(img => ({\n      id: img.id,\n      type: img.type,\n      subtype: img.subtype,\n      url: img.storage?.public_url,\n      filename: img.storage?.filename\n    })),\n    \n    // Failed items for retry\n    failed_items: failed.map(img => ({\n      id: img.id,\n      type: img.type,\n      error: img.storage?.error || img.generation?.error\n    })),\n    \n    // Cost tracking\n    cost: {\n      estimated: config.estimated_cost,\n      actual: successful.length * 0.04 // DALL-E 3 pricing\n    },\n    \n    // Timing\n    duration_seconds: Math.round(durationMs / 1000),\n    \n    // Callbacks\n    outline_id: config.outline_id,\n    teaser_package_id: config.teaser_package_id,\n    callback_workflow: config.callback_workflow\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3640, 400],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {"__rl": true, "value": "appXXXXXXXXXXXXXX", "mode": "id"},
+        "table": {"__rl": true, "value": "tblAssets", "mode": "id"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ 'Images: ' + $json.title }}",
+            "Type": "image_package",
+            "Outline": "={{ $json.outline_id ? [$json.outline_id] : [] }}",
+            "File URLs": "={{ JSON.stringify($json.all_urls) }}",
+            "Image Count": "={{ $json.summary.successful }}",
+            "Session ID": "={{ $json.session_id }}",
+            "Status": "ready"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [3860, 400],
+      "id": "save-asset",
+      "name": "Save Asset Record",
+      "credentials": {"airtableTokenApi": {"id": "YOUR_AIRTABLE_CREDENTIAL", "name": "Airtable"}}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "has-callback", "leftValue": "={{ $('Build Response').first().json.callback_workflow }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [4080, 400],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Build Response').first().json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"image_package_id\": \"{{ $('Save Asset Record').first().json.id }}\",\n  \"session_id\": \"{{ $('Build Response').first().json.session_id }}\",\n  \"summary\": {{ JSON.stringify($('Build Response').first().json.summary) }},\n  \"assets\": {{ JSON.stringify($('Build Response').first().json.assets) }}\n}",
+        "options": {"timeout": 5000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4300, 300],
+      "id": "trigger-callback",
+      "name": "Trigger Callback",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {"mode": "combine", "combineBy": "combineAll", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4520, 400],
+      "id": "merge-final",
+      "name": "Merge Final"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('Build Response').first().json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [4740, 400],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "connections": {
+    "Image Generator Request": {"main": [[{"node": "Validate & Configure", "type": "main", "index": 0}]]},
+    "Validate & Configure": {"main": [[{"node": "Has Outline?", "type": "main", "index": 0}]]},
+    "Has Outline?": {"main": [[{"node": "Fetch Outline", "type": "main", "index": 0}], [{"node": "Merge Data", "type": "main", "index": 0}]]},
+    "Fetch Outline": {"main": [[{"node": "Fetch Research", "type": "main", "index": 0}]]},
+    "Fetch Research": {"main": [[{"node": "Merge Data", "type": "main", "index": 0}]]},
+    "Merge Data": {"main": [[{"node": "Build Image Queue", "type": "main", "index": 0}]]},
+    "Build Image Queue": {"main": [[{"node": "Split Queue", "type": "main", "index": 0}]]},
+    "Split Queue": {"main": [[{"node": "Generate with DALL-E", "type": "main", "index": 0}]]},
+    "Generate with DALL-E": {"main": [[{"node": "Process Generation", "type": "main", "index": 0}]]},
+    "Process Generation": {"main": [[{"node": "Generation Success?", "type": "main", "index": 0}]]},
+    "Generation Success?": {"main": [[{"node": "Download Image", "type": "main", "index": 0}], [{"node": "Handle Failure", "type": "main", "index": 0}]]},
+    "Download Image": {"main": [[{"node": "Store Image", "type": "main", "index": 0}]]},
+    "Handle Failure": {"main": [[{"node": "Merge Results", "type": "main", "index": 0}]]},
+    "Store Image": {"main": [[{"node": "Merge Results", "type": "main", "index": 0}]]},
+    "Merge Results": {"main": [[{"node": "Collect All Images", "type": "main", "index": 0}]]},
+    "Collect All Images": {"main": [[{"node": "Build Response", "type": "main", "index": 0}]]},
+    "Build Response": {"main": [[{"node": "Save Asset Record", "type": "main", "index": 0}]]},
+    "Save Asset Record": {"main": [[{"node": "Has Callback?", "type": "main", "index": 0}]]},
+    "Has Callback?": {"main": [[{"node": "Trigger Callback", "type": "main", "index": 0}], [{"node": "Merge Final", "type": "main", "index": 0}]]},
+    "Trigger Callback": {"main": [[{"node": "Merge Final", "type": "main", "index": 0}]]},
+    "Merge Final": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "W13-image-generator-v1",
+  "meta": {"templateCredsSetupCompleted": false, "instanceId": ""},
+  "id": "W13-ImageGenerator",
+  "tags": []
+}

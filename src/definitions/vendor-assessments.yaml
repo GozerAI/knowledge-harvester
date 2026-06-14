@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Vendor Assessments
+
+name: vendor-assessments
+description: Vendor review templates, risk assessments, and due diligence checklists
+artifact_type: documentation
+tool_type: procurement
+language: markdown
+
+queries:
+  - query: '"vendor assessment" "security" "owner" extension:md'
+    label: vendor-assessment
+  - query: '"due diligence" "vendor" "risk" extension:md'
+    label: vendor-due-diligence
+  - query: '"third-party risk" "questionnaire" extension:md'
+    label: third-party-risk
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)vendor|third-party|due diligence|assessment|risk'
+
+metadata:
+  framework: procurement
+  default_category: policy

@@ -1,0 +1,28 @@
+# Programmable Harvester Definition — Kestra Flows
+
+name: kestra-flows
+description: Kestra orchestration flows, tasks, and triggers
+artifact_type: workflow
+tool_type: kestra
+language: yaml
+
+queries:
+  - query: '"id:" "namespace:" "tasks:" "io.kestra" extension:yml'
+    label: kestra-tasks
+  - query: '"namespace:" "tasks:" "triggers:" "io.kestra" extension:yaml'
+    label: kestra-triggers
+  - query: '"io.kestra.plugin" "tasks:" extension:yaml'
+    label: kestra-plugins
+
+validation:
+  min_size: 100
+  max_size: 300000
+  extensions: [yaml, yml]
+  required_patterns:
+    - 'namespace:'
+    - 'tasks:'
+    - 'io\.kestra'
+
+metadata:
+  framework: kestra
+  default_category: orchestration

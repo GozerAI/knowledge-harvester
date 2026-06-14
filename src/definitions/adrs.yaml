@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Architecture Decision Records
+
+name: adrs
+description: Architecture Decision Records (ADRs) and design rationale
+artifact_type: documentation
+tool_type: adr
+language: markdown
+
+queries:
+  - query: '"## Status" "## Context" "## Decision" extension:md'
+    label: adr-standard
+  - query: 'filename:adr path:doc extension:md'
+    label: adr-doc-dir
+  - query: '"Architecture Decision" "Status" "Context" extension:md'
+    label: adr-titled
+
+validation:
+  min_size: 200
+  max_size: 100000
+  extensions: [md, markdown]
+  required_patterns:
+    - 'Status|Context|Decision'
+
+metadata:
+  framework: adr
+  default_category: adr

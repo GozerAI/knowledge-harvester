@@ -1,0 +1,53 @@
+{
+  "name": "W7B: Design Applicator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W7B: Design Applicator\n\nApplies design decisions to marketing assets.\nGenerates production-ready HTML landing pages.",
+        "height": 200,
+        "width": 300
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "apply-design",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Apply Design Request",
+      "webhookId": "apply-design-webhook",
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, productId: $json.body?.productId }) }}"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [560, 400],
+      "id": "respond",
+      "name": "Respond",
+      "disabled": false
+    }
+  ],
+  "connections": {
+    "Apply Design Request": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

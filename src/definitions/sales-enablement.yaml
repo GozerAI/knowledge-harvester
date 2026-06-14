@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Sales Enablement
+
+name: sales-enablement
+description: Sales enablement guides, battlecards, certification plans, and messaging docs
+artifact_type: documentation
+tool_type: enablement
+language: markdown
+
+queries:
+  - query: '"sales enablement" extension:md'
+    label: sales-enablement
+  - query: '"battlecard" extension:md'
+    label: battlecard
+  - query: '"objection handling" extension:md'
+    label: objection-handling
+
+validation:
+  min_size: 160
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)enablement|battlecard|objection handling|discovery questions|talk track|certification'
+
+metadata:
+  framework: enablement
+  default_category: enablement-doc

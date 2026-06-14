@@ -1,0 +1,1275 @@
+{
+  "updatedAt": "2025-12-23T23:01:34.416Z",
+  "createdAt": "2025-12-21T02:42:32.913Z",
+  "id": "hyeIhKfoYi2IxZj4",
+  "name": "W5: Self-Correcting Research Engine v2",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W5: Self-Correcting Research Engine v2\n\n## Level 4/5 Autonomous Agent\n\nThis isn't just a research workflow - it's a **reasoning system** that:\n\n### 1. Self-Corrects (Critic-Refine Loop)\n- Initial synthesis ??' Critic identifies gaps ??' Round 2 research ??' Final synthesis\n- Mimics editor sending draft back to journalist\n\n### 2. Multi-Persona Board of Directors\n- **The Historian**: Timeline, origin, evolution\n- **The Skeptic**: Counter-arguments, failures, criticisms\n- **The Futurist**: Predictions, trends, emerging tech\n- Three perspectives merged into nuanced output\n\n### 3. Source Authority Scoring\n- `.gov`, `.edu`, journals ??' Weight x2\n- SEO farms, social media ??' Weight x0.5\n- Synthesizer prioritizes high-authority facts\n\n### 4. Semantic Caching (Corporate Memory)\n- Embeds queries ??' checks vector cache\n- Similar query in 30 days? Pull cached + delta only\n- Builds proprietary knowledge base over time\n\n### 5. Entity-Relationship Extraction\n- Extracts People, Companies, Concepts, Events\n- Maps relationships between entities\n- Feeds graph visualization / knowledge graphs\n\n## Cost Estimate\n- Light: ~$0.04 (with caching: ~$0.01)\n- Medium: ~$0.08 (with caching: ~$0.03)\n- Deep: ~$0.15 (with caching: ~$0.06)\n\n## Setup Required\n1. Airtable base with Research + Cache tables\n2. Perplexity API key\n3. OpenAI API key (for embeddings + synthesis)\n4. Optional: Pinecone/Supabase for vector cache",
+        "height": 1168,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        -320
+      ],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-engine-v2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        352,
+        400
+      ],
+      "id": "webhook-trigger",
+      "name": "Research Request",
+      "webhookId": "research-engine-v2-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and normalize input\nconst input = $input.first().json.body || $input.first().json;\n\nconst topicId = input.topic_id || null;\nconst topicText = input.topic || null;\nconst depth = input.depth || 'medium';\nconst focusAreas = input.focus_areas || [];\nconst callbackWorkflow = input.callback_workflow || null;\nconst skipCache = input.skip_cache || false;\nconst maxRefinementRounds = input.max_refinement_rounds || 1;\n\nif (!topicId && !topicText) {\n  throw new Error('Must provide either topic_id or topic text');\n}\n\nconst validDepths = ['light', 'medium', 'deep'];\nif (!validDepths.includes(depth)) {\n  throw new Error(`Invalid depth: ${depth}. Must be: ${validDepths.join(', ')}`);\n}\n\nconst queryConfig = {\n  light: { count: 3, useBoard: false, maxRefinements: 0 },\n  medium: { count: 7, useBoard: false, maxRefinements: 1 },\n  deep: { count: 12, useBoard: true, maxRefinements: 2 }\n};\n\nconst config = queryConfig[depth];\n\nreturn [{\n  json: {\n    topic_id: topicId,\n    topic: topicText,\n    depth: depth,\n    query_count: config.count,\n    use_board_of_directors: config.useBoard,\n    max_refinement_rounds: Math.min(maxRefinementRounds, config.maxRefinements),\n    current_refinement_round: 0,\n    focus_areas: focusAreas,\n    callback_workflow: callbackWorkflow,\n    skip_cache: skipCache,\n    session_id: `research_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        400
+      ],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 1: SEMANTIC CACHE CHECK\n\nBefore hitting Perplexity, check if we've researched something similar recently.\n\n**Logic:**\n1. Embed the topic query\n2. Search vector cache for similarity > 0.85\n3. If found within 30 days ??' use cached research as base\n4. Only query Perplexity for \"delta\" (what's new)\n\n**Benefit:** \n- Faster execution\n- Lower cost\n- Builds corporate memory over time",
+        "height": 424,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -48
+      ],
+      "id": "cache-note",
+      "name": "Cache Phase Note"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/embeddings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"text-embedding-3-small\",\n  \"input\": \"{{ $json.topic }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        768,
+        400
+      ],
+      "id": "embed-query",
+      "name": "Embed Topic Query",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "kLcneoJ8gDz9LcDX",
+          "name": "OpenAI API Header"
+        },
+        "openAiApi": {
+          "id": "ij43B7qk5VisBm1q",
+          "name": "OpenAI Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract embedding and prepare cache lookup\nconst input = $('Validate & Configure').first().json;\nconst embeddingResponse = $input.first().json;\n\nconst embedding = embeddingResponse.data?.[0]?.embedding || [];\n\nif (embedding.length === 0) {\n  console.warn('Failed to generate embedding, skipping cache');\n}\n\nreturn [{\n  json: {\n    ...input,\n    query_embedding: embedding,\n    embedding_model: 'text-embedding-3-small',\n    embedding_dimensions: embedding.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        400
+      ],
+      "id": "extract-embedding",
+      "name": "Extract Embedding"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "skip-cache-check",
+              "leftValue": "={{ $json.skip_cache }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            },
+            {
+              "id": "has-embedding",
+              "leftValue": "={{ $json.query_embedding.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        400
+      ],
+      "id": "check-cache-enabled",
+      "name": "Cache Enabled?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\nconst researchDir = 'C:/dev/production_line/research';\n\ntry {\n  if (!fs.existsSync(researchDir)) {\n    return [{ json: { _empty: true } }];\n  }\n  const files = fs.readdirSync(researchDir).filter(f => f.endsWith('.json'));\n  if (files.length === 0) {\n    return [{ json: { _empty: true } }];\n  }\n  const results = [];\n  for (const file of files.slice(-10)) {\n    const content = JSON.parse(fs.readFileSync(path.join(researchDir, file), 'utf8'));\n    results.push({ json: content });\n  }\n  return results;\n} catch (err) {\n  return [{ json: { _empty: true, error: err.message } }];\n}"
+      },
+      "id": "fetch-cache",
+      "name": "Fetch Recent Research",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1360,
+        304
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate cosine similarity between query and cached research\nconst inputData = $('Extract Embedding').first().json;\nconst queryEmbedding = inputData.query_embedding;\nconst cachedRecords = $input.all().map(item => item.json);\n\n// Cosine similarity function\nfunction cosineSimilarity(a, b) {\n  if (!a || !b || a.length !== b.length) return 0;\n  let dotProduct = 0;\n  let normA = 0;\n  let normB = 0;\n  for (let i = 0; i < a.length; i++) {\n    dotProduct += a[i] * b[i];\n    normA += a[i] * a[i];\n    normB += b[i] * b[i];\n  }\n  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));\n}\n\n// Find best matching cached research\nlet bestMatch = null;\nlet bestSimilarity = 0;\nconst SIMILARITY_THRESHOLD = 0.85;\n\nfor (const record of cachedRecords) {\n  try {\n    const cachedEmbedding = JSON.parse(record.Embedding || '[]');\n    const similarity = cosineSimilarity(queryEmbedding, cachedEmbedding);\n    \n    if (similarity > bestSimilarity && similarity >= SIMILARITY_THRESHOLD) {\n      bestSimilarity = similarity;\n      bestMatch = {\n        record_id: record.id,\n        topic: record['Topic Text'],\n        summary: record.Summary,\n        insights: record.Insights,\n        quality_score: record['Quality Score'],\n        similarity: similarity,\n        created: record.Created\n      };\n    }\n  } catch (e) {\n    console.warn('Failed to parse cached embedding:', e);\n  }\n}\n\nreturn [{\n  json: {\n    ...inputData,\n    cache_hit: bestMatch !== null,\n    cached_research: bestMatch,\n    cache_similarity: bestSimilarity,\n    cache_threshold: SIMILARITY_THRESHOLD\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1568,
+        304
+      ],
+      "id": "calculate-similarity",
+      "name": "Calculate Similarity"
+    },
+    {
+      "parameters": {
+        "jsCode": "// No cache check - pass through\nconst input = $('Extract Embedding').first().json;\n\nreturn [{\n  json: {\n    ...input,\n    cache_hit: false,\n    cached_research: null,\n    cache_similarity: 0,\n    cache_threshold: 0.85\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        512
+      ],
+      "id": "skip-cache",
+      "name": "Skip Cache"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through whichever input has data\nconst items = $input.all();\nif (items.length === 0 || (items.length === 1 && items[0].json._empty)) {\n  throw new Error('No data received from cache paths');\n}\nreturn items.filter(item => !item.json._empty);"
+      },
+      "id": "merge-cache-paths",
+      "name": "Merge Cache Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 2: QUERY GENERATION\n\nGenerate research queries based on:\n- Depth level (3/7/12 queries)\n- Focus areas (user-specified)\n- Cache delta (what's missing from cached research)\n\nQueries are tagged by category for intelligent routing.",
+        "height": 276,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        96
+      ],
+      "id": "query-note",
+      "name": "Query Phase Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate research queries with cache awareness\nconst input = $input.first().json;\nconst topic = input.topic;\nconst depth = input.depth;\nconst focusAreas = input.focus_areas || [];\nconst cacheHit = input.cache_hit;\nconst cachedResearch = input.cached_research;\nconst refinementRound = input.current_refinement_round || 0;\nconst refinementQuestions = input.refinement_questions || [];\n\n// If this is a refinement round, use critic's questions\nif (refinementRound > 0 && refinementQuestions.length > 0) {\n  return refinementQuestions.map((q, index) => ({\n    json: {\n      ...input,\n      current_query: q.question,\n      query_index: index,\n      query_category: q.category || 'refinement',\n      total_queries: refinementQuestions.length,\n      is_refinement: true\n    }\n  }));\n}\n\n// Base query templates\nconst queryTemplates = {\n  core: [\n    { query: `${topic} comprehensive overview 2024`, category: 'overview' },\n    { query: `${topic} key statistics data research`, category: 'statistics' },\n    { query: `${topic} common problems challenges solutions`, category: 'problems' }\n  ],\n  extended: [\n    { query: `${topic} expert opinions industry leaders`, category: 'expert' },\n    { query: `${topic} case studies real examples success`, category: 'examples' },\n    { query: `${topic} best practices methodology framework`, category: 'framework' },\n    { query: `${topic} tools software platforms comparison`, category: 'tools' }\n  ],\n  deep: [\n    { query: `${topic} historical evolution timeline origin`, category: 'history' },\n    { query: `${topic} controversies criticism failures lessons`, category: 'skeptic' },\n    { query: `${topic} future predictions trends 2025 2030`, category: 'future' },\n    { query: `${topic} academic research scientific studies`, category: 'academic' },\n    { query: `${topic} market size growth investment funding`, category: 'market' }\n  ]\n};\n\n// Build query list based on depth\nlet queries = [...queryTemplates.core];\nif (depth === 'medium' || depth === 'deep') {\n  queries = [...queries, ...queryTemplates.extended];\n}\nif (depth === 'deep') {\n  queries = [...queries, ...queryTemplates.deep];\n}\n\n// Add focus area queries\nfocusAreas.forEach(area => {\n  queries.push({ \n    query: `${topic} ${area} detailed analysis`, \n    category: 'focus' \n  });\n});\n\n// If cache hit, add delta queries\nif (cacheHit && cachedResearch) {\n  queries.push({\n    query: `${topic} latest news developments past 30 days`,\n    category: 'delta'\n  });\n  queries.push({\n    query: `${topic} recent announcements updates 2024`,\n    category: 'delta'\n  });\n}\n\n// Return each query as separate item\nreturn queries.map((q, index) => ({\n  json: {\n    ...input,\n    current_query: q.query,\n    query_index: index,\n    query_category: q.category,\n    total_queries: queries.length,\n    is_refinement: false\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1968,
+        400
+      ],
+      "id": "generate-queries",
+      "name": "Generate Research Queries"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"sonar\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a research assistant. Provide comprehensive, factual information from credible sources. Include specific statistics with dates, expert names with credentials, and source URLs when available. Structure your response with clear sections.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.current_query }}\"\n    }\n  ],\n  \"temperature\": 0.5,\n  \"max_tokens\": 5000,\n  \"return_citations\": true\n}",
+        "options": {
+          "timeout": 45000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2192,
+        400
+      ],
+      "id": "perplexity-search",
+      "name": "Perplexity Research",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "hSdeMIcnnUqi7U9p",
+          "name": "Perplexity API Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 3: SOURCE AUTHORITY SCORING\n\nNot all sources are equal. Score them:\n\n**High Authority (x2 weight):**\n- `.gov`, `.edu` domains\n- Known journals (nature.com, sciencedirect.com)\n- Major news (reuters, ap, bbc)\n\n**Low Authority (x0.5 weight):**\n- Social media (reddit, twitter, facebook)\n- Known SEO farms\n- User-generated content sites\n\n**Neutral (x1 weight):**\n- Everything else",
+        "height": 412,
+        "width": 320
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2384,
+        -64
+      ],
+      "id": "authority-note",
+      "name": "Authority Scoring Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse response and score source authority\nconst input = $input.item.json;\nconst queryData = $('Generate Research Queries').item.json;\n\n// Parse Perplexity response\nlet content = '';\nlet citations = [];\n\nif (input.choices && input.choices[0]) {\n  content = input.choices[0].message?.content || '';\n}\nif (input.citations) {\n  citations = input.citations;\n}\n\n// Authority scoring rules\nconst HIGH_AUTHORITY_DOMAINS = [\n  '.gov', '.edu', '.mil',\n  'nature.com', 'sciencedirect.com', 'springer.com', 'wiley.com',\n  'pubmed.ncbi', 'arxiv.org', 'jstor.org',\n  'reuters.com', 'apnews.com', 'bbc.com', 'bbc.co.uk',\n  'nytimes.com', 'wsj.com', 'economist.com',\n  'hbr.org', 'mckinsey.com', 'bcg.com', 'deloitte.com',\n  'gartner.com', 'forrester.com', 'statista.com'\n];\n\nconst LOW_AUTHORITY_DOMAINS = [\n  'reddit.com', 'twitter.com', 'x.com', 'facebook.com',\n  'quora.com', 'medium.com', 'linkedin.com/pulse',\n  'buzzfeed.com', 'huffpost.com',\n  'ehow.com', 'wikihow.com', 'answers.com',\n  'blogspot.com', 'wordpress.com'\n];\n\n// Score each citation\nconst scoredCitations = citations.map(url => {\n  let authority = 1.0; // neutral default\n  let authorityLevel = 'neutral';\n  \n  const urlLower = (url || '').toLowerCase();\n  \n  // Check high authority\n  for (const domain of HIGH_AUTHORITY_DOMAINS) {\n    if (urlLower.includes(domain)) {\n      authority = 2.0;\n      authorityLevel = 'high';\n      break;\n    }\n  }\n  \n  // Check low authority (only if not already high)\n  if (authority === 1.0) {\n    for (const domain of LOW_AUTHORITY_DOMAINS) {\n      if (urlLower.includes(domain)) {\n        authority = 0.5;\n        authorityLevel = 'low';\n        break;\n      }\n    }\n  }\n  \n  return {\n    url: url,\n    authority_score: authority,\n    authority_level: authorityLevel\n  };\n});\n\n// Calculate average authority for this query\nconst avgAuthority = scoredCitations.length > 0\n  ? scoredCitations.reduce((sum, c) => sum + c.authority_score, 0) / scoredCitations.length\n  : 1.0;\n\nreturn [{\n  json: {\n    topic: queryData.topic,\n    topic_id: queryData.topic_id,\n    depth: queryData.depth,\n    session_id: queryData.session_id,\n    query: queryData.current_query,\n    query_index: queryData.query_index,\n    query_category: queryData.query_category,\n    total_queries: queryData.total_queries,\n    is_refinement: queryData.is_refinement,\n    response: content,\n    citations: scoredCitations,\n    citation_count: scoredCitations.length,\n    high_authority_count: scoredCitations.filter(c => c.authority_level === 'high').length,\n    average_authority: avgAuthority,\n    cache_hit: queryData.cache_hit,\n    cached_research: queryData.cached_research,\n    use_board_of_directors: queryData.use_board_of_directors,\n    max_refinement_rounds: queryData.max_refinement_rounds,\n    current_refinement_round: queryData.current_refinement_round,\n    callback_workflow: queryData.callback_workflow,\n    started_at: queryData.started_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2400,
+        400
+      ],
+      "id": "score-authority",
+      "name": "Score Source Authority"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {
+          "includeBinaries": true
+        }
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2624,
+        400
+      ],
+      "id": "collect-responses",
+      "name": "Collect All Responses"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "use-board",
+              "leftValue": "={{ $json.data[0].use_board_of_directors === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2832,
+        400
+      ],
+      "id": "check-board",
+      "name": "Use Board of Directors?"
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 4: BOARD OF DIRECTORS SYNTHESIS\n\nFor deep research, run THREE parallel syntheses:\n\n**The Historian:**\n- Focus: Timeline, origin, evolution\n- Extracts: Key dates, pivotal moments, founders\n\n**The Skeptic:**\n- Focus: Counter-arguments, failures, criticisms\n- Extracts: Risks, controversies, opposing views\n\n**The Futurist:**\n- Focus: Predictions, trends, emerging tech\n- Extracts: Forecasts, innovations, disruptions\n\nMerged into nuanced, multi-perspective report.",
+        "height": 500,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2960,
+        -352
+      ],
+      "id": "board-note",
+      "name": "Board of Directors Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "GPT-5.2"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are THE HISTORIAN on a Board of Directors analyzing research. Your SOLE FOCUS is:\n- Historical timeline and evolution of the topic\n- Origin stories and founding moments\n- Key milestones and pivotal events\n- How the field/concept developed over time\n- Influential figures who shaped it\n\nIGNORE future predictions, criticisms, or current trends. Focus ONLY on history.\n\nOutput JSON:\n{\n  \"perspective\": \"historian\",\n  \"timeline\": [{\"year\": 2020, \"event\": \"...\", \"significance\": \"...\"}],\n  \"key_figures\": [{\"name\": \"...\", \"contribution\": \"...\", \"era\": \"...\"}],\n  \"evolution_summary\": \"300 word summary of historical development\",\n  \"pivotal_moments\": [\"moment 1\", \"moment 2\"]\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Analyze this research from THE HISTORIAN perspective:\n\nTopic: {{ $json.data[0].topic }}\n\nResearch Data (prioritize high-authority sources):\n{{ $json.data.map(r => `\\n[${r.query_category.toUpperCase()}] (Authority: ${r.average_authority.toFixed(2)})\\n${r.response}`).join('\\n---\\n') }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        3040,
+        208
+      ],
+      "id": "historian-synthesis",
+      "name": "The Historian",
+      "credentials": {
+        "openAiApi": {
+          "id": "ij43B7qk5VisBm1q",
+          "name": "OpenAI Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "GPT-5.2"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are THE SKEPTIC on a Board of Directors analyzing research. Your SOLE FOCUS is:\n- Counter-arguments and opposing viewpoints\n- Failures, mistakes, and lessons learned\n- Criticisms from experts or practitioners\n- Risks, dangers, and potential downsides\n- What could go wrong or has gone wrong\n- Controversies and debates in the field\n\nIGNORE positive spin, success stories, or future optimism. Focus ONLY on critical analysis.\n\nOutput JSON:\n{\n  \"perspective\": \"skeptic\",\n  \"criticisms\": [{\"point\": \"...\", \"source\": \"...\", \"validity\": \"high/medium/low\"}],\n  \"failures\": [{\"what\": \"...\", \"why\": \"...\", \"lesson\": \"...\"}],\n  \"risks\": [{\"risk\": \"...\", \"likelihood\": \"...\", \"impact\": \"...\"}],\n  \"controversies\": [\"controversy 1\", \"controversy 2\"],\n  \"critical_summary\": \"300 word summary of concerns and criticisms\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Analyze this research from THE SKEPTIC perspective:\n\nTopic: {{ $json.data[0].topic }}\n\nResearch Data (prioritize high-authority sources):\n{{ $json.data.map(r => `\\n[${r.query_category.toUpperCase()}] (Authority: ${r.average_authority.toFixed(2)})\\n${r.response}`).join('\\n---\\n') }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        3040,
+        400
+      ],
+      "id": "skeptic-synthesis",
+      "name": "The Skeptic",
+      "credentials": {
+        "openAiApi": {
+          "id": "ij43B7qk5VisBm1q",
+          "name": "OpenAI Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "GPT-5.2"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are THE FUTURIST on a Board of Directors analyzing research. Your SOLE FOCUS is:\n- Future predictions and forecasts\n- Emerging trends and innovations\n- What experts predict will happen\n- Technological disruptions on the horizon\n- Market projections and growth forecasts\n- What's next for this field/topic\n\nIGNORE history, current problems, or criticisms. Focus ONLY on the future.\n\nOutput JSON:\n{\n  \"perspective\": \"futurist\",\n  \"predictions\": [{\"prediction\": \"...\", \"timeframe\": \"...\", \"confidence\": \"high/medium/low\", \"source\": \"...\"}],\n  \"emerging_trends\": [{\"trend\": \"...\", \"impact\": \"...\", \"timeline\": \"...\"}],\n  \"disruptions\": [{\"disruption\": \"...\", \"affected_areas\": [...], \"probability\": \"...\"}],\n  \"market_forecasts\": [{\"metric\": \"...\", \"current\": \"...\", \"projected\": \"...\", \"year\": 2025}],\n  \"future_summary\": \"300 word summary of what's coming next\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Analyze this research from THE FUTURIST perspective:\n\nTopic: {{ $json.data[0].topic }}\n\nResearch Data (prioritize high-authority sources):\n{{ $json.data.map(r => `\\n[${r.query_category.toUpperCase()}] (Authority: ${r.average_authority.toFixed(2)})\\n${r.response}`).join('\\n---\\n') }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        3040,
+        608
+      ],
+      "id": "futurist-synthesis",
+      "name": "The Futurist",
+      "credentials": {
+        "openAiApi": {
+          "id": "ij43B7qk5VisBm1q",
+          "name": "OpenAI Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Board of Directors perspectives\nconst collectedData = $('Collect All Responses').first().json.data;\nconst metadata = collectedData[0];\n\n// Parse each perspective\nlet historian = {};\nlet skeptic = {};\nlet futurist = {};\n\ntry {\n  const historianRaw = $('The Historian').first().json.message?.content || '{}';\n  historian = typeof historianRaw === 'string' ? JSON.parse(historianRaw) : historianRaw;\n} catch (e) { console.error('Historian parse error:', e); }\n\ntry {\n  const skepticRaw = $('The Skeptic').first().json.message?.content || '{}';\n  skeptic = typeof skepticRaw === 'string' ? JSON.parse(skepticRaw) : skepticRaw;\n} catch (e) { console.error('Skeptic parse error:', e); }\n\ntry {\n  const futuristRaw = $('The Futurist').first().json.message?.content || '{}';\n  futurist = typeof futuristRaw === 'string' ? JSON.parse(futuristRaw) : futuristRaw;\n} catch (e) { console.error('Futurist parse error:', e); }\n\nreturn [{\n  json: {\n    topic: metadata.topic,\n    topic_id: metadata.topic_id,\n    depth: metadata.depth,\n    session_id: metadata.session_id,\n    use_board_of_directors: true,\n    board_perspectives: {\n      historian: historian,\n      skeptic: skeptic,\n      futurist: futurist\n    },\n    raw_responses: collectedData,\n    cache_hit: metadata.cache_hit,\n    cached_research: metadata.cached_research,\n    max_refinement_rounds: metadata.max_refinement_rounds,\n    current_refinement_round: metadata.current_refinement_round,\n    callback_workflow: metadata.callback_workflow,\n    started_at: metadata.started_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3312,
+        400
+      ],
+      "id": "merge-board",
+      "name": "Merge Board Perspectives"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-5.2",
+          "mode": "list",
+          "cachedResultName": "GPT-5.2"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a research synthesizer. Analyze the research and extract structured data.\n\nPrioritize information from HIGH AUTHORITY sources (authority score > 1.5).\n\nOutput ONLY valid JSON:\n{\n  \"summary\": \"500 word comprehensive summary\",\n  \"insights\": [{\"text\": \"...\", \"importance\": 1-10, \"category\": \"actionable|warning|trend|fact|framework\"}],\n  \"quotes\": [{\"text\": \"exact quote\", \"author\": \"name\", \"role\": \"title\", \"source\": \"url\"}],\n  \"statistics\": [{\"stat\": \"specific number\", \"source\": \"name\", \"year\": 2024, \"authority\": \"high|medium|low\"}],\n  \"sources\": [{\"title\": \"...\", \"url\": \"...\", \"type\": \"article|study|report\", \"authority\": \"high|medium|low\"}],\n  \"key_themes\": [\"theme1\", \"theme2\"],\n  \"board_perspectives\": null\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Topic: {{ $json.data[0].topic }}\n\nResearch (sorted by authority):\n{{ $json.data.sort((a,b) => b.average_authority - a.average_authority).map(r => `\\n[${r.query_category}] Authority: ${r.average_authority.toFixed(2)}\\n${r.response}\\nSources: ${r.citations.filter(c => c.authority_level === 'high').map(c => c.url).join(', ')}`).join('\\n---\\n') }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        3040,
+        800
+      ],
+      "id": "simple-synthesis",
+      "name": "Standard Synthesis",
+      "credentials": {
+        "openAiApi": {
+          "id": "ij43B7qk5VisBm1q",
+          "name": "OpenAI Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process simple synthesis (non-board path)\nconst collectedData = $('Collect All Responses').first().json.data;\nconst metadata = collectedData[0];\nlet synthesisRaw = $('Standard Synthesis').first().json.message?.content || '{}';\n\n// Strip markdown code blocks if present\nif (synthesisRaw.startsWith('```')) {\n  // Remove opening ```json or ``` and closing ```\n  let cleaned = synthesisRaw;\n  if (cleaned.startsWith('```json')) {\n    cleaned = cleaned.slice(7);\n  } else if (cleaned.startsWith('```')) {\n    cleaned = cleaned.slice(3);\n  }\n  if (cleaned.endsWith('```')) {\n    cleaned = cleaned.slice(0, -3);\n  }\n  synthesisRaw = cleaned.trim();\n}\n\nlet synthesis = {};\ntry {\n  synthesis = typeof synthesisRaw === 'string' ? JSON.parse(synthesisRaw) : synthesisRaw;\n} catch (e) {\n  console.error('Synthesis parse error:', e);\n  synthesis = { summary: 'Failed to synthesize', insights: [], quotes: [], statistics: [], sources: [], key_themes: [] };\n}\n\nreturn [{\n  json: {\n    topic: metadata.topic,\n    topic_id: metadata.topic_id,\n    depth: metadata.depth,\n    session_id: metadata.session_id,\n    use_board_of_directors: false,\n    synthesis: synthesis,\n    raw_responses: collectedData,\n    cache_hit: metadata.cache_hit,\n    cached_research: metadata.cached_research,\n    max_refinement_rounds: metadata.max_refinement_rounds,\n    current_refinement_round: metadata.current_refinement_round,\n    callback_workflow: metadata.callback_workflow,\n    started_at: metadata.started_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3312,
+        800
+      ],
+      "id": "process-simple",
+      "name": "Process Simple Synthesis"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through whichever input has data\nconst items = $input.all();\nif (items.length === 0) {\n  throw new Error('No input data received');\n}\nreturn items.filter(item => !item.json._empty);"
+      },
+      "id": "merge-synthesis-paths",
+      "name": "Merge Synthesis Paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 5: ENTITY EXTRACTION\n\nExtract structured entities and relationships:\n\n**Entity Types:**\n- Person (name, role, company)\n- Company (name, industry, size)\n- Concept (name, category)\n- Event (name, date, significance)\n- Product (name, company, category)\n\n**Relationships:**\n- Person ??' Company (role)\n- Company ??' Company (partnership/competition)\n- Concept ??' Concept (related/opposed)\n- Event ??' Entity (affected)\n\nOutputs graph-ready JSON for visualization.",
+        "height": 456,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3680,
+        0
+      ],
+      "id": "entity-note",
+      "name": "Entity Extraction Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are an entity extraction specialist. Extract ALL named entities and their relationships from the research.\n\nEntity types to extract:\n- Person: name, role/title, company/org, relevance to topic\n- Company: name, industry, type (startup/enterprise/gov), relevance\n- Concept: name, category (methodology/framework/technology), definition\n- Event: name, date, type (conference/launch/milestone), significance\n- Product: name, company, category, status\n\nRelationship types:\n- leads/founded/works_at (Person ??' Company)\n- competes_with/partners_with/acquired (Company ??' Company)\n- created/invented/popularized (Person ??' Concept/Product)\n- related_to/enables/disrupts (Concept ??' Concept)\n- announced_at/resulted_in (Event ??' Entity)\n\nOutput ONLY valid JSON:\n{\n  \"entities\": [\n    {\"id\": \"e1\", \"name\": \"Sam Altman\", \"type\": \"Person\", \"attributes\": {\"role\": \"CEO\", \"company\": \"OpenAI\"}},\n    {\"id\": \"e2\", \"name\": \"OpenAI\", \"type\": \"Company\", \"attributes\": {\"industry\": \"AI\", \"type\": \"startup\"}}\n  ],\n  \"relationships\": [\n    {\"source\": \"e1\", \"target\": \"e2\", \"relation\": \"leads\", \"context\": \"CEO since 2019\"}\n  ]\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Extract entities and relationships from this research about: {{ $json.topic }}\n\n{{ $json.use_board_of_directors ? \n  'HISTORIAN SUMMARY:\\n' + ($json.board_perspectives?.historian?.evolution_summary || '') + '\\n\\nSKEPTIC SUMMARY:\\n' + ($json.board_perspectives?.skeptic?.critical_summary || '') + '\\n\\nFUTURIST SUMMARY:\\n' + ($json.board_perspectives?.futurist?.future_summary || '')\n  : \n  'SUMMARY:\\n' + ($json.synthesis?.summary || '')\n}}\n\nRAW RESEARCH EXCERPTS:\n{{ $json.raw_responses?.slice(0, 5).map(r => r.response?.substring(0, 500)).join('\\n---\\n') }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        3728,
+        512
+      ],
+      "id": "extract-entities",
+      "name": "Extract Entities & Relations",
+      "credentials": {
+        "openAiApi": {
+          "id": "ij43B7qk5VisBm1q",
+          "name": "OpenAI Production"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 6: CRITIC-REFINE LOOP\n\nThe \"Editor\" that sends drafts back for revision:\n\n1. Critic reviews initial synthesis\n2. Identifies gaps, weak arguments, missing data\n3. Generates 3 specific follow-up questions\n4. Questions loop back to Perplexity\n5. Results merged into final report\n\n**Triggers:**\n- Quality score < 70\n- Current round < max rounds\n\n**Max Rounds:**\n- Light: 0 (no refinement)\n- Medium: 1 round\n- Deep: 2 rounds",
+        "height": 468,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4304,
+        -112
+      ],
+      "id": "critic-note",
+      "name": "Critic Loop Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine synthesis with entity extraction\nconst synthesisData = $('Merge Synthesis Paths').first().json;\nconst entityRaw = $('Extract Entities & Relations').first().json.message?.content || '{}';\n\nlet entities = { entities: [], relationships: [] };\ntry {\n  entities = typeof entityRaw === 'string' ? JSON.parse(entityRaw) : entityRaw;\n} catch (e) {\n  console.error('Entity parse error:', e);\n}\n\n// Calculate initial quality score\nconst data = synthesisData.use_board_of_directors ? synthesisData.board_perspectives : synthesisData.synthesis;\nconst insightCount = data?.insights?.length || \n  (synthesisData.board_perspectives?.historian?.timeline?.length || 0) +\n  (synthesisData.board_perspectives?.skeptic?.criticisms?.length || 0) +\n  (synthesisData.board_perspectives?.futurist?.predictions?.length || 0);\n\nconst quoteCount = data?.quotes?.length || 0;\nconst statCount = data?.statistics?.length || \n  (synthesisData.board_perspectives?.futurist?.market_forecasts?.length || 0);\nconst sourceCount = data?.sources?.length || 0;\nconst entityCount = entities.entities?.length || 0;\n\nconst qualityScore = Math.min(100,\n  (insightCount * 4) +\n  (quoteCount * 8) +\n  (statCount * 6) +\n  (sourceCount * 2) +\n  (entityCount * 3) +\n  (synthesisData.use_board_of_directors ? 15 : 0) // Bonus for board synthesis\n);\n\nreturn [{\n  json: {\n    ...synthesisData,\n    entities: entities.entities || [],\n    relationships: entities.relationships || [],\n    quality_score: qualityScore,\n    metrics: {\n      insight_count: insightCount,\n      quote_count: quoteCount,\n      stat_count: statCount,\n      source_count: sourceCount,\n      entity_count: entityCount,\n      relationship_count: entities.relationships?.length || 0\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3968,
+        512
+      ],
+      "id": "combine-with-entities",
+      "name": "Combine & Score"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "quality-low",
+              "leftValue": "={{ $json.quality_score }}",
+              "rightValue": 70,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            },
+            {
+              "id": "rounds-remaining",
+              "leftValue": "={{ $json.current_refinement_round }}",
+              "rightValue": "={{ $json.max_refinement_rounds }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4192,
+        512
+      ],
+      "id": "check-refinement",
+      "name": "Needs Refinement?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare refinement loop\nconst currentData = $('Combine & Score').first().json;\nconst criticRaw = $('Critic Analysis').first().json.message?.content || '{}';\n\nlet critique = {};\ntry {\n  critique = typeof criticRaw === 'string' ? JSON.parse(criticRaw) : criticRaw;\n} catch (e) {\n  console.error('Critic parse error:', e);\n  critique = { follow_up_questions: [] };\n}\n\nconst questions = critique.follow_up_questions || [];\n\nif (questions.length === 0) {\n  // No refinement questions, proceed to final\n  return [{\n    json: {\n      ...currentData,\n      refinement_skipped: true,\n      critic_feedback: critique.quality_assessment || 'No gaps identified'\n    }\n  }];\n}\n\n// Prepare for refinement round\nreturn [{\n  json: {\n    topic: currentData.topic,\n    topic_id: currentData.topic_id,\n    depth: currentData.depth,\n    session_id: currentData.session_id,\n    query_embedding: currentData.query_embedding || [],\n    focus_areas: [],\n    callback_workflow: currentData.callback_workflow,\n    skip_cache: true, // Don't cache refinement queries\n    current_refinement_round: currentData.current_refinement_round + 1,\n    max_refinement_rounds: currentData.max_refinement_rounds,\n    refinement_questions: questions,\n    previous_synthesis: currentData.use_board_of_directors ? currentData.board_perspectives : currentData.synthesis,\n    previous_entities: currentData.entities,\n    previous_relationships: currentData.relationships,\n    previous_quality_score: currentData.quality_score,\n    critic_feedback: critique,\n    cache_hit: false,\n    cached_research: null,\n    use_board_of_directors: false, // Refinement uses simple synthesis\n    started_at: currentData.started_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4624,
+        400
+      ],
+      "id": "prepare-refinement",
+      "name": "Prepare Refinement"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final assembly of research package\nconst data = $input.first().json;\n\n// Determine if this came from refinement or direct path\nconst isRefined = data.current_refinement_round > 0 || data.refinement_skipped;\n\n// Build final synthesis\nlet finalSynthesis = {};\nif (data.use_board_of_directors && data.board_perspectives) {\n  // Merge board perspectives into unified format\n  finalSynthesis = {\n    summary: [\n      data.board_perspectives.historian?.evolution_summary || '',\n      data.board_perspectives.skeptic?.critical_summary || '',\n      data.board_perspectives.futurist?.future_summary || ''\n    ].filter(s => s).join('\\n\\n'),\n    insights: [\n      ...(data.board_perspectives.historian?.timeline || []).map(t => ({text: `${t.year}: ${t.event}`, importance: 7, category: 'history'})),\n      ...(data.board_perspectives.skeptic?.criticisms || []).map(c => ({text: c.point, importance: 8, category: 'warning'})),\n      ...(data.board_perspectives.futurist?.predictions || []).map(p => ({text: p.prediction, importance: 8, category: 'trend'}))\n    ],\n    quotes: data.synthesis?.quotes || [],\n    statistics: [\n      ...(data.synthesis?.statistics || []),\n      ...(data.board_perspectives.futurist?.market_forecasts || []).map(f => ({stat: `${f.metric}: ${f.projected} by ${f.year}`, source: 'Forecast', year: f.year}))\n    ],\n    sources: data.synthesis?.sources || [],\n    key_themes: data.synthesis?.key_themes || [],\n    board_perspectives: data.board_perspectives\n  };\n} else {\n  finalSynthesis = data.synthesis || data.previous_synthesis || {};\n}\n\n// Merge any refinement data\nif (data.previous_synthesis && data.synthesis) {\n  finalSynthesis.insights = [...(data.previous_synthesis.insights || []), ...(finalSynthesis.insights || [])];\n  finalSynthesis.statistics = [...(data.previous_synthesis.statistics || []), ...(finalSynthesis.statistics || [])];\n  finalSynthesis.sources = [...(data.previous_synthesis.sources || []), ...(finalSynthesis.sources || [])];\n}\n\n// Deduplicate insights by text similarity\nconst uniqueInsights = [];\nconst seenInsights = new Set();\nfor (const insight of (finalSynthesis.insights || [])) {\n  const key = insight.text?.toLowerCase().substring(0, 50);\n  if (key && !seenInsights.has(key)) {\n    seenInsights.add(key);\n    uniqueInsights.push(insight);\n  }\n}\nfinalSynthesis.insights = uniqueInsights;\n\n// Merge entities\nconst allEntities = [...(data.entities || []), ...(data.previous_entities || [])];\nconst uniqueEntities = [];\nconst seenEntities = new Set();\nfor (const entity of allEntities) {\n  if (!seenEntities.has(entity.name)) {\n    seenEntities.add(entity.name);\n    uniqueEntities.push(entity);\n  }\n}\n\nconst allRelationships = [...(data.relationships || []), ...(data.previous_relationships || [])];\n\n// Calculate final quality score\nconst finalQualityScore = Math.min(100,\n  (uniqueInsights.length * 4) +\n  ((finalSynthesis.quotes?.length || 0) * 8) +\n  ((finalSynthesis.statistics?.length || 0) * 6) +\n  ((finalSynthesis.sources?.length || 0) * 2) +\n  (uniqueEntities.length * 3) +\n  (data.use_board_of_directors ? 15 : 0) +\n  (isRefined ? 10 : 0) // Bonus for going through refinement\n);\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(data.started_at);\n\nreturn [{\n  json: {\n    // Identifiers\n    topic_id: data.topic_id,\n    topic: data.topic,\n    session_id: data.session_id,\n    depth: data.depth,\n    \n    // Core research output\n    summary: finalSynthesis.summary || '',\n    insights: JSON.stringify(uniqueInsights),\n    quotes: JSON.stringify(finalSynthesis.quotes || []),\n    statistics: JSON.stringify(finalSynthesis.statistics || []),\n    sources: JSON.stringify(finalSynthesis.sources || []),\n    key_themes: JSON.stringify(finalSynthesis.key_themes || []),\n    \n    // Board perspectives (if used)\n    board_perspectives: data.use_board_of_directors ? JSON.stringify(data.board_perspectives) : null,\n    \n    // Entity graph\n    entities: JSON.stringify(uniqueEntities),\n    relationships: JSON.stringify(allRelationships),\n    \n    // Quality metrics\n    quality_score: finalQualityScore,\n    insight_count: uniqueInsights.length,\n    quote_count: finalSynthesis.quotes?.length || 0,\n    stat_count: finalSynthesis.statistics?.length || 0,\n    source_count: finalSynthesis.sources?.length || 0,\n    entity_count: uniqueEntities.length,\n    relationship_count: allRelationships.length,\n    \n    // Processing metadata\n    used_board_of_directors: data.use_board_of_directors || false,\n    refinement_rounds: data.current_refinement_round || 0,\n    cache_hit: data.cache_hit || false,\n    \n    // Embedding for cache\n    embedding: JSON.stringify(data.query_embedding || []),\n    \n    // Callback\n    callback_workflow: data.callback_workflow,\n    \n    // Timing\n    started_at: data.started_at,\n    completed_at: completedAt,\n    duration_seconds: Math.round(durationMs / 1000)\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4624,
+        608
+      ],
+      "id": "final-assembly",
+      "name": "Final Assembly"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3001/api/storage/research",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "save-research",
+      "name": "Save to Local File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4864,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-callback",
+              "leftValue": "={{ $('Final Assembly').first().json.callback_workflow }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5088,
+        608
+      ],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Final Assembly').first().json.callback_workflow }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic_id\": \"{{ $('Final Assembly').first().json.topic_id }}\",\n  \"topic\": \"{{ $('Final Assembly').first().json.topic }}\",\n  \"research_id\": \"{{ $('Save to Airtable').first().json.id }}\",\n  \"depth\": \"{{ $('Final Assembly').first().json.depth }}\",\n  \"quality_score\": {{ $('Final Assembly').first().json.quality_score }},\n  \"entity_count\": {{ $('Final Assembly').first().json.entity_count }}\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5312,
+        512
+      ],
+      "id": "trigger-callback",
+      "name": "Trigger Next Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build comprehensive response\nconst research = $('Final Assembly').first().json;\nconst savedFile = $('Save to Local File').first().json;\n\n// Generate a unique ID based on session_id or timestamp\nconst researchId = research.session_id || `research_${Date.now()}`;\n\nreturn [{\n  json: {\n    success: true,\n    research_id: researchId,\n    topic: research.topic,\n    topic_id: research.topic_id,\n    depth: research.depth,\n    \n    quality: {\n      score: research.quality_score,\n      grade: research.quality_score >= 80 ? 'A' : research.quality_score >= 60 ? 'B' : research.quality_score >= 40 ? 'C' : 'D'\n    },\n    \n    metrics: {\n      insights: research.insight_count || 0,\n      quotes: research.quote_count || 0,\n      statistics: research.stat_count || 0,\n      sources: research.source_count || 0,\n      entities: research.entity_count || 0,\n      relationships: research.relationship_count || 0\n    },\n    \n    processing: {\n      used_board_of_directors: research.used_board_of_directors || false,\n      refinement_rounds: research.refinement_rounds || 0,\n      cache_hit: research.cache_hit || false,\n      duration_seconds: research.duration_seconds || 0\n    },\n    \n    callback_triggered: !!research.callback_workflow,\n    \n    output: {\n      file_path: savedFile.file_path || savedFile.filePath,\n      saved: savedFile.success || true\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5504,
+        608
+      ],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        5728,
+        608
+      ],
+      "id": "respond",
+      "name": "Respond"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-opus-4-5-20251101",
+          "mode": "list",
+          "cachedResultName": "claude-opus-4-5-20251101"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a RESEARCH CRITIC. Your job is to identify gaps and weaknesses in research reports.\n\nReview the research and identify:\n1. Missing statistics or data that would strengthen claims\n2. Weak arguments that need more evidence\n3. Important perspectives or viewpoints not covered\n4. Questions a skeptical reader would ask\n5. Areas where the research feels shallow\n\nOutput EXACTLY 3 specific follow-up research questions that would fix the biggest gaps.\n\nOutput JSON:\n{\n  \"quality_assessment\": \"brief assessment of current quality\",\n  \"gaps_identified\": [\"gap 1\", \"gap 2\", \"gap 3\"],\n  \"follow_up_questions\": [\n    {\"question\": \"specific research query to fill gap\", \"category\": \"statistics|evidence|perspective|depth\", \"priority\": 1},\n    {\"question\": \"...\", \"category\": \"...\", \"priority\": 2},\n    {\"question\": \"...\", \"category\": \"...\", \"priority\": 3}\n  ]\n}",
+              "role": "assistant"
+            },
+            {
+              "content": "=Critique this research about: {{ $json.topic }}\n\nCurrent Quality Score: {{ $json.quality_score }}/100\n\nSUMMARY:\n{{ $json.use_board_of_directors ? \n  ($json.board_perspectives?.historian?.evolution_summary || '') + '\\n' + ($json.board_perspectives?.skeptic?.critical_summary || '') + '\\n' + ($json.board_perspectives?.futurist?.future_summary || '')\n  : ($json.synthesis?.summary || '')\n}}\n\nKEY INSIGHTS FOUND: {{ $json.metrics?.insight_count || 0 }}\nSTATISTICS FOUND: {{ $json.metrics?.stat_count || 0 }}\nEXPERT QUOTES: {{ $json.metrics?.quote_count || 0 }}\n\nWhat's missing? What would make this research more comprehensive and authoritative?"
+            }
+          ]
+        },
+        "options": {
+          "webSearch": true,
+          "temperature": 0.3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        4400,
+        400
+      ],
+      "id": "81e5cb28-30a6-466e-a6f4-31d621550ccc",
+      "name": "Message a model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "mOkt3POiBU16ZZKl",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3112,
+        400
+      ],
+      "id": "wait-for-board",
+      "name": "Wait For All Board Members"
+    }
+  ],
+  "connections": {
+    "Research Request": {
+      "main": [
+        [
+          {
+            "node": "Validate & Configure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Configure": {
+      "main": [
+        [
+          {
+            "node": "Embed Topic Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embed Topic Query": {
+      "main": [
+        [
+          {
+            "node": "Extract Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Embedding": {
+      "main": [
+        [
+          {
+            "node": "Cache Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cache Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recent Research",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recent Research": {
+      "main": [
+        [
+          {
+            "node": "Calculate Similarity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Similarity": {
+      "main": [
+        [
+          {
+            "node": "Merge Cache Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Cache": {
+      "main": [
+        [
+          {
+            "node": "Merge Cache Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Cache Paths": {
+      "main": [
+        [
+          {
+            "node": "Generate Research Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Research Queries": {
+      "main": [
+        [
+          {
+            "node": "Perplexity Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity Research": {
+      "main": [
+        [
+          {
+            "node": "Score Source Authority",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Source Authority": {
+      "main": [
+        [
+          {
+            "node": "Collect All Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect All Responses": {
+      "main": [
+        [
+          {
+            "node": "Use Board of Directors?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Board of Directors?": {
+      "main": [
+        [
+          {
+            "node": "The Historian",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "The Skeptic",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "The Futurist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Standard Synthesis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "The Historian": {
+      "main": [
+        [
+          {
+            "node": "Wait For All Board Members",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "The Skeptic": {
+      "main": [
+        [
+          {
+            "node": "Wait For All Board Members",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "The Futurist": {
+      "main": [
+        [
+          {
+            "node": "Wait For All Board Members",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge Board Perspectives": {
+      "main": [
+        [
+          {
+            "node": "Merge Synthesis Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Standard Synthesis": {
+      "main": [
+        [
+          {
+            "node": "Process Simple Synthesis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Simple Synthesis": {
+      "main": [
+        [
+          {
+            "node": "Merge Synthesis Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Synthesis Paths": {
+      "main": [
+        [
+          {
+            "node": "Extract Entities & Relations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Entities & Relations": {
+      "main": [
+        [
+          {
+            "node": "Combine & Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine & Score": {
+      "main": [
+        [
+          {
+            "node": "Needs Refinement?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Refinement?": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Assembly",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Refinement": {
+      "main": [
+        [
+          {
+            "node": "Generate Research Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Assembly": {
+      "main": [
+        [
+          {
+            "node": "Save to Local File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Local File": {
+      "main": [
+        [
+          {
+            "node": "Has Callback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Callback?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Next Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Next Workflow": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Prepare Refinement",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For All Board Members": {
+      "main": [
+        [
+          {
+            "node": "Merge Board Perspectives",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {},
+  "versionId": "f05d8dfe-2066-44db-bed4-3362df63c36e",
+  "activeVersionId": "f05d8dfe-2066-44db-bed4-3362df63c36e",
+  "versionCounter": 85,
+  "triggerCount": 1,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2025-12-21T02:42:32.915Z",
+      "createdAt": "2025-12-21T02:42:32.915Z",
+      "role": "workflow:owner",
+      "workflowId": "hyeIhKfoYi2IxZj4",
+      "projectId": "wkGn0A3iQHRImB7u",
+      "project": {
+        "updatedAt": "2025-12-13T17:53:40.234Z",
+        "createdAt": "2025-12-13T17:40:47.453Z",
+        "id": "wkGn0A3iQHRImB7u",
+        "name": "Chris Arsenault <chris.mwd20@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

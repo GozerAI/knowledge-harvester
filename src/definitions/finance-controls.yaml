@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Finance Controls
+
+name: finance-controls
+description: Finance control narratives, reconciliation docs, budgeting procedures, and close checklists
+artifact_type: documentation
+tool_type: finance
+language: markdown
+
+queries:
+  - query: '"monthly close" extension:md'
+    label: monthly-close
+  - query: '"expense policy" extension:md'
+    label: expense-policy
+  - query: '"reconciliation" "general ledger" extension:md'
+    label: reconciliation-gl
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)budget|forecast|reconciliation|general ledger|cost center|invoice|expense'
+
+metadata:
+  framework: finance
+  default_category: finance-doc

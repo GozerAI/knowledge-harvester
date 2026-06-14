@@ -1,0 +1,644 @@
+{
+  "name": "W7: Teaser Package Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W7: Teaser Package Generator\n\n## Purpose\nGenerates a complete marketing launch package from W6 outline:\n- Social media posts (multi-platform)\n- Video scripts (TikTok, YouTube Shorts, YouTube Long)\n- Landing page copy & structure\n- Email sequence hooks\n- Ad copy variants\n- Lead magnet preview content\n\n## Philosophy\n**Create the marketing BEFORE the product.**\nThis ensures market validation and builds audience while content is being written.\n\n## Input\n```json\n{\n  \"outline_id\": \"rec789\",\n  \"topic\": \"productivity for remote workers\",\n  \"package_type\": \"full|social_only|video_only|landing_page_only\",\n  \"platforms\": [\"twitter\", \"linkedin\", \"instagram\", \"tiktok\", \"youtube\"],\n  \"tone\": \"professional|casual|provocative|educational\",\n  \"urgency_level\": \"soft|medium|high\",\n  \"callback_workflow\": \"W13\"  // Image Generator\n}\n```\n\n## Output Package\n1. **Social Posts**: 3-5 per platform, different hooks\n2. **Video Scripts**: 3 TikToks, 3 Shorts, 1 Long-form outline\n3. **Landing Page**: Hero, benefits, social proof, CTA sections\n4. **Email Hooks**: 5 subject lines + preview text\n5. **Ad Copy**: 3 variants (curiosity, pain, aspiration)\n6. **Lead Magnet Preview**: First chapter/section teaser\n\n## Cost: ~$0.08-0.15 per package",
+        "height": 680,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -140,
+        -100
+      ],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "teaser-generator",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        340,
+        400
+      ],
+      "id": "webhook-trigger",
+      "name": "Teaser Package Request",
+      "webhookId": "teaser-generator-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and configure teaser package request\nconst input = $input.first().json.body || $input.first().json;\n\n// Required fields\nconst outlineId = input.outline_id;\nconst topic = input.topic;\nconst title = input.title;\n\nif (!outlineId) {\n  throw new Error('Must provide outline_id from W6');\n}\n\n// Package configuration\nconst packageType = input.package_type || 'full';\nconst validPackageTypes = ['full', 'social_only', 'video_only', 'landing_page_only'];\nif (!validPackageTypes.includes(packageType)) {\n  throw new Error(`Invalid package_type: ${packageType}`);\n}\n\n// Platform selection\nconst defaultPlatforms = ['twitter', 'linkedin', 'instagram', 'tiktok', 'youtube'];\nconst platforms = input.platforms || defaultPlatforms;\n\n// Tone and urgency\nconst tone = input.tone || 'professional';\nconst urgencyLevel = input.urgency_level || 'medium';\n\n// Platform-specific configuration\nconst platformConfig = {\n  twitter: {\n    maxLength: 280,\n    hashtagCount: 3,\n    postsNeeded: 5,\n    style: 'punchy, thread-friendly'\n  },\n  linkedin: {\n    maxLength: 3000,\n    hashtagCount: 5,\n    postsNeeded: 3,\n    style: 'professional, story-driven'\n  },\n  instagram: {\n    maxLength: 2200,\n    hashtagCount: 15,\n    postsNeeded: 4,\n    style: 'visual-first, carousel-friendly'\n  },\n  tiktok: {\n    maxLength: 300,\n    hashtagCount: 5,\n    postsNeeded: 3,\n    style: 'hook-heavy, trend-aware'\n  },\n  youtube: {\n    maxLength: 5000,\n    hashtagCount: 3,\n    postsNeeded: 2,\n    style: 'SEO-optimized, searchable'\n  },\n  threads: {\n    maxLength: 500,\n    hashtagCount: 0,\n    postsNeeded: 3,\n    style: 'conversational, authentic'\n  },\n  facebook: {\n    maxLength: 63206,\n    hashtagCount: 2,\n    postsNeeded: 3,\n    style: 'community-focused, shareable'\n  }\n};\n\n// Video configuration\nconst videoConfig = {\n  tiktok_short: {\n    duration: '15-60 seconds',\n    structure: 'hook (3s) → problem (10s) → solution tease (10s) → CTA (5s)',\n    count: 3\n  },\n  youtube_short: {\n    duration: '30-60 seconds',\n    structure: 'hook (3s) → value bomb (20s) → cliffhanger (10s) → subscribe CTA',\n    count: 3\n  },\n  youtube_long: {\n    duration: '8-12 minutes',\n    structure: 'hook → intro → 3 main points → deeper dive → CTA → outro',\n    count: 1\n  }\n};\n\n// Callback configuration\nconst callbackWorkflow = input.callback_workflow || null;\nconst autoTriggerImageGen = input.auto_trigger_image_gen !== false;\n\nreturn [{\n  json: {\n    outline_id: outlineId,\n    topic: topic,\n    title: title || topic,\n    format: input.format || 'ebook',\n    package_type: packageType,\n    platforms: platforms,\n    platform_config: platformConfig,\n    video_config: videoConfig,\n    tone: tone,\n    urgency_level: urgencyLevel,\n    callback_workflow: callbackWorkflow,\n    auto_trigger_image_gen: autoTriggerImageGen,\n    session_id: `teaser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        540,
+        400
+      ],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblOutlines",
+          "mode": "id"
+        },
+        "id": "={{ $json.outline_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        760,
+        400
+      ],
+      "id": "fetch-outline",
+      "name": "Fetch Outline from W6",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL",
+          "name": "Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblResearch",
+          "mode": "id"
+        },
+        "id": "={{ $('Fetch Outline from W6').first().json.Research?.[0] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        980,
+        400
+      ],
+      "id": "fetch-research",
+      "name": "Fetch Research",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL",
+          "name": "Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and prepare data for teaser generation\nconst config = $('Validate & Configure').first().json;\nconst outline = $('Fetch Outline from W6').first().json;\nconst research = $input.first().json;\n\n// Parse outline sections\nlet sections = [];\nlet allTitles = [];\nlet derivatives = [];\ntry { sections = JSON.parse(outline.Sections || '[]'); } catch(e) {}\ntry { allTitles = JSON.parse(outline['All Titles'] || '[]'); } catch(e) {}\ntry { derivatives = JSON.parse(outline.Derivatives || '[]'); } catch(e) {}\n\n// Parse research\nlet insights = [];\nlet statistics = [];\nlet quotes = [];\nlet keyThemes = [];\ntry { insights = JSON.parse(research.Insights || '[]'); } catch(e) {}\ntry { statistics = JSON.parse(research.Statistics || '[]'); } catch(e) {}\ntry { quotes = JSON.parse(research.Quotes || '[]'); } catch(e) {}\ntry { keyThemes = JSON.parse(research['Key Themes'] || '[]'); } catch(e) {}\n\n// Extract best hooks from sections\nconst sectionHooks = sections\n  .filter(s => s.hooks?.opening)\n  .map(s => ({\n    section: s.title,\n    hook: s.hooks.opening,\n    promise: s.hooks.promise\n  }));\n\n// Sort insights by importance for marketing use\nconst topInsights = [...insights]\n  .sort((a, b) => (b.importance || 0) - (a.importance || 0))\n  .slice(0, 10);\n\n// Get warning/problem insights (pain points for marketing)\nconst painPoints = insights\n  .filter(i => i.category === 'warning' || i.category === 'problem')\n  .slice(0, 5);\n\n// Get actionable insights (solutions for marketing)\nconst solutions = insights\n  .filter(i => i.category === 'actionable' || i.category === 'framework')\n  .slice(0, 5);\n\n// Build marketing context\nconst marketingContext = {\n  // Core product info\n  title: outline.Title || config.title,\n  subtitle: outline.Subtitle || '',\n  format: outline.Format || config.format,\n  section_count: sections.length,\n  total_words: outline['Total Target Words'] || 0,\n  reading_time: outline['Reading Time (min)'] || 0,\n  \n  // Alternative titles for A/B testing\n  title_variants: allTitles.slice(0, 5),\n  \n  // Section preview (for lead magnet teasers)\n  first_sections: sections.slice(0, 3).map(s => ({\n    title: s.title,\n    key_points: s.key_points?.slice(0, 3) || [],\n    hook: s.hooks?.opening\n  })),\n  \n  // Marketing ammunition\n  hooks: sectionHooks.slice(0, 5),\n  pain_points: painPoints,\n  solutions: solutions,\n  top_insights: topInsights,\n  statistics: statistics.slice(0, 10),\n  expert_quotes: quotes.slice(0, 5),\n  key_themes: keyThemes,\n  \n  // Derivative products (bonus offerings)\n  derivatives: derivatives.slice(0, 5),\n  \n  // Research quality (for authority claims)\n  research_quality: research['Quality Score'] || 0,\n  source_count: (JSON.parse(research.Sources || '[]')).length\n};\n\nreturn [{\n  json: {\n    ...config,\n    marketing: marketingContext,\n    outline_record_id: outline.id,\n    research_record_id: research.id\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        400
+      ],
+      "id": "parse-data",
+      "name": "Parse Marketing Context"
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 1: SOCIAL MEDIA POSTS\n\nGenerate platform-specific posts:\n\n**Twitter/X**: 5 posts (threads, single, quote-style)\n**LinkedIn**: 3 posts (story, insight, announcement)\n**Instagram**: 4 posts (carousel hooks, reel captions)\n**TikTok**: 3 captions (hook-first, trend-aware)\n**YouTube**: 2 descriptions (SEO-optimized)\n\nEach post includes:\n- Main copy\n- Hashtags (platform-appropriate count)\n- CTA variant\n- Best posting time suggestion\n- Visual direction for W13",
+        "height": 340,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1380,
+        60
+      ],
+      "id": "social-note",
+      "name": "Social Media Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a viral social media strategist. Create platform-optimized posts for a product launch.\n\n## PRODUCT INFO\nTitle: {{ $json.marketing.title }}\nSubtitle: {{ $json.marketing.subtitle }}\nFormat: {{ $json.marketing.format }}\nKey Themes: {{ $json.marketing.key_themes.join(', ') }}\n\n## MARKETING AMMUNITION\n\nPain Points to Agitate:\n{{ $json.marketing.pain_points.map(p => '- ' + p.text).join('\\n') }}\n\nSolutions to Promise:\n{{ $json.marketing.solutions.map(s => '- ' + s.text).join('\\n') }}\n\nStatistics to Use:\n{{ $json.marketing.statistics.slice(0, 5).map(s => '- ' + s.stat).join('\\n') }}\n\nExpert Quotes:\n{{ $json.marketing.expert_quotes.slice(0, 3).map(q => '- \"' + q.text.substring(0, 100) + '...\" - ' + q.author).join('\\n') }}\n\n## TONE: {{ $json.tone }}\n## URGENCY: {{ $json.urgency_level }}\n\n## PLATFORM REQUIREMENTS\n{{ Object.entries($json.platform_config).filter(([platform]) => $json.platforms.includes(platform)).map(([platform, cfg]) => `\n### ${platform.toUpperCase()}\n- Max length: ${cfg.maxLength} chars\n- Hashtags: ${cfg.hashtagCount}\n- Posts needed: ${cfg.postsNeeded}\n- Style: ${cfg.style}`).join('\\n') }}\n\n## OUTPUT JSON\n{\n  \"social_posts\": {\n    \"twitter\": [\n      {\n        \"type\": \"single|thread_start|quote_style\",\n        \"copy\": \"Main post text...\",\n        \"hashtags\": [\"#productivity\", \"#remotework\"],\n        \"cta\": \"Link in bio\" or \"Reply with 'SEND' for free chapter\",\n        \"hook_type\": \"curiosity|pain|stat|controversial\",\n        \"visual_direction\": \"Bold text overlay with stat\" or \"Before/after split\",\n        \"best_time\": \"Tuesday 9am EST\",\n        \"thread_continuation\": [\"Tweet 2...\", \"Tweet 3...\"] // only for threads\n      }\n    ],\n    \"linkedin\": [...],\n    \"instagram\": [...],\n    \"tiktok\": [...],\n    \"youtube\": [...]\n  }\n}",
+              "role": "system"
+            },
+            {
+              "content": "Create the social media post package for this launch. Make each post unique - different hooks, different angles, different CTAs. The goal is to test what resonates."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        1420,
+        400
+      ],
+      "id": "generate-social",
+      "name": "Generate Social Posts",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 2: VIDEO SCRIPTS\n\nGenerate video scripts for:\n\n**TikTok/Reels (3 scripts)**\n- 15-60 seconds each\n- Hook in first 3 seconds\n- Native feel, not salesy\n\n**YouTube Shorts (3 scripts)**\n- 30-60 seconds each\n- Value-bomb format\n- Subscribe CTA\n\n**YouTube Long-form (1 outline)**\n- 8-12 minute structure\n- SEO title/description\n- Timestamp chapters\n\nEach includes:\n- Scene-by-scene breakdown\n- On-screen text suggestions\n- B-roll directions\n- Music/vibe notes",
+        "height": 400,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        20
+      ],
+      "id": "video-note",
+      "name": "Video Scripts Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a viral video scriptwriter specializing in educational content. Create video scripts for a product launch.\n\n## PRODUCT INFO\nTitle: {{ $json.marketing.title }}\nFormat: {{ $json.marketing.format }}\nKey Themes: {{ $json.marketing.key_themes.join(', ') }}\n\n## CONTENT HOOKS AVAILABLE\n{{ $json.marketing.hooks.map(h => `- \"${h.hook}\" (from: ${h.section})`).join('\\n') }}\n\n## STATISTICS TO FEATURE\n{{ $json.marketing.statistics.slice(0, 5).map(s => '- ' + s.stat).join('\\n') }}\n\n## PAIN POINTS TO ADDRESS\n{{ $json.marketing.pain_points.map(p => '- ' + p.text).join('\\n') }}\n\n## VIDEO REQUIREMENTS\n\n### TIKTOK/REELS (3 scripts)\n- Duration: 15-60 seconds\n- Structure: Hook (3s) → Problem (10s) → Solution Tease (10s) → CTA (5s)\n- Style: Native, authentic, not salesy\n- Must stop the scroll in first 2 seconds\n\n### YOUTUBE SHORTS (3 scripts)\n- Duration: 30-60 seconds\n- Structure: Hook (3s) → Value bomb (20s) → Cliffhanger (10s) → Subscribe CTA\n- Style: Educational, quick wins\n- Vertical format optimized\n\n### YOUTUBE LONG-FORM (1 outline)\n- Duration: 8-12 minutes\n- Structure: Hook → Intro → 3 Main Points → Deeper Dive → CTA → Outro\n- Include: SEO title, description, tags, timestamp chapters\n- Style: Comprehensive but engaging\n\n## TONE: {{ $json.tone }}\n\n## OUTPUT JSON\n{\n  \"video_scripts\": {\n    \"tiktok_reels\": [\n      {\n        \"title\": \"Hook title for internal reference\",\n        \"duration_seconds\": 45,\n        \"hook_style\": \"controversial|question|stat|story\",\n        \"script\": [\n          {\"timestamp\": \"0:00-0:03\", \"type\": \"hook\", \"dialogue\": \"Stop scrolling if you...\", \"visual\": \"Face close to camera, surprised expression\", \"text_overlay\": \"THIS CHANGES EVERYTHING\"},\n          {\"timestamp\": \"0:03-0:15\", \"type\": \"problem\", \"dialogue\": \"...\", \"visual\": \"...\", \"text_overlay\": \"...\"},\n          {\"timestamp\": \"0:15-0:40\", \"type\": \"solution_tease\", \"dialogue\": \"...\", \"visual\": \"...\", \"text_overlay\": \"...\"},\n          {\"timestamp\": \"0:40-0:45\", \"type\": \"cta\", \"dialogue\": \"...\", \"visual\": \"...\", \"text_overlay\": \"...\"}\n        ],\n        \"music_vibe\": \"Trending audio - upbeat, motivational\",\n        \"caption\": \"Caption for the post...\",\n        \"hashtags\": [\"#fyp\", \"#productivity\"]\n      }\n    ],\n    \"youtube_shorts\": [\n      {\n        \"title\": \"Short title\",\n        \"duration_seconds\": 55,\n        \"hook_style\": \"...\",\n        \"script\": [...],\n        \"music_vibe\": \"...\",\n        \"end_screen\": \"Subscribe button animation\"\n      }\n    ],\n    \"youtube_long\": {\n      \"seo_title\": \"SEO-optimized title (60 chars max)\",\n      \"description\": \"Full description with links and timestamps...\",\n      \"tags\": [\"keyword1\", \"keyword2\"],\n      \"thumbnail_concept\": \"Description of thumbnail design\",\n      \"chapters\": [\n        {\"timestamp\": \"0:00\", \"title\": \"Introduction\", \"key_points\": [\"...\"]},\n        {\"timestamp\": \"1:30\", \"title\": \"Point 1\", \"key_points\": [\"...\"]}\n      ],\n      \"script_outline\": [\n        {\"section\": \"Hook\", \"duration\": \"0:00-0:30\", \"content\": \"Opening hook...\", \"b_roll\": \"...\"}\n      ],\n      \"cta_placement\": [\n        {\"timestamp\": \"3:00\", \"type\": \"soft\", \"script\": \"If you're finding this helpful...\"},\n        {\"timestamp\": \"10:00\", \"type\": \"hard\", \"script\": \"Link in description...\"}\n      ]\n    }\n  }\n}",
+              "role": "system"
+            },
+            {
+              "content": "Create the complete video script package. Make each script unique - different hooks, different angles. The TikToks should feel native to the platform. The YouTube long-form should be comprehensive enough to establish authority."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        1800,
+        400
+      ],
+      "id": "generate-videos",
+      "name": "Generate Video Scripts",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 3: LANDING PAGE\n\nGenerate complete landing page copy:\n\n**Hero Section**\n- Headline (3 variants)\n- Subheadline\n- Primary CTA button text\n- Hero image direction\n\n**Problem Section**\n- Pain point statements\n- Agitation copy\n\n**Solution Section**\n- Feature/benefit blocks\n- Transformation promise\n\n**Social Proof Section**\n- Testimonial templates\n- Trust badges copy\n- Statistics callouts\n\n**Bonus Section**\n- Derivative products as bonuses\n- Value stack\n\n**CTA Section**\n- Final headline\n- Urgency copy\n- Button text variants\n- Guarantee copy",
+        "height": 480,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2140,
+        -20
+      ],
+      "id": "landing-note",
+      "name": "Landing Page Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a conversion-focused landing page copywriter. Create complete landing page copy for a digital product launch.\n\n## PRODUCT INFO\nTitle: {{ $json.marketing.title }}\nSubtitle: {{ $json.marketing.subtitle }}\nFormat: {{ $json.marketing.format }}\nChapters/Sections: {{ $json.marketing.section_count }}\nTotal Content: {{ $json.marketing.total_words }} words\nReading Time: {{ $json.marketing.reading_time }} minutes\n\n## TITLE VARIANTS FOR A/B TESTING\n{{ $json.marketing.title_variants.map((t, i) => `${i + 1}. ${t.title}`).join('\\n') }}\n\n## PREVIEW CONTENT (for what's inside)\n{{ $json.marketing.first_sections.map(s => `Chapter: ${s.title}\\n   - ${(s.key_points || []).join('\\n   - ')}`).join('\\n\\n') }}\n\n## PAIN POINTS TO ADDRESS\n{{ $json.marketing.pain_points.map(p => '- ' + p.text).join('\\n') }}\n\n## SOLUTIONS/BENEFITS TO PROMISE\n{{ $json.marketing.solutions.map(s => '- ' + s.text).join('\\n') }}\n\n## STATISTICS FOR CREDIBILITY\n{{ $json.marketing.statistics.slice(0, 7).map(s => '- ' + s.stat + ' (' + s.source + ')').join('\\n') }}\n\n## EXPERT QUOTES\n{{ $json.marketing.expert_quotes.map(q => '- \"' + q.text.substring(0, 150) + '\" - ' + q.author + ', ' + q.role).join('\\n') }}\n\n## BONUS PRODUCTS (derivatives)\n{{ $json.marketing.derivatives.map(d => '- ' + d.type + ': ' + d.title).join('\\n') }}\n\n## TONE: {{ $json.tone }}\n## URGENCY LEVEL: {{ $json.urgency_level }}\n\n## OUTPUT JSON\n{\n  \"landing_page\": {\n    \"hero\": {\n      \"headlines\": [\n        {\"text\": \"Main headline\", \"hook_type\": \"curiosity|pain|transformation\"},\n        {\"text\": \"Variant 2\", \"hook_type\": \"...\"},\n        {\"text\": \"Variant 3\", \"hook_type\": \"...\"}\n      ],\n      \"subheadline\": \"Supporting text that explains the transformation...\",\n      \"cta_button\": {\n        \"primary\": \"Get Instant Access\",\n        \"variants\": [\"Download Now\", \"Start Learning\", \"Claim Your Copy\"]\n      },\n      \"hero_image_direction\": \"Description of ideal hero image/mockup\",\n      \"social_proof_snippet\": \"Join 10,000+ professionals who...\"\n    },\n    \n    \"problem\": {\n      \"section_headline\": \"Sound familiar?\",\n      \"pain_statements\": [\n        {\"statement\": \"You've tried X but...\", \"emotion\": \"frustration\"},\n        {\"statement\": \"...\", \"emotion\": \"...\"}\n      ],\n      \"agitation\": \"Paragraph that twists the knife on the pain...\",\n      \"bridge\": \"But what if there was a better way?\"\n    },\n    \n    \"solution\": {\n      \"section_headline\": \"Introducing...\",\n      \"transformation_promise\": \"One sentence transformation...\",\n      \"feature_blocks\": [\n        {\n          \"icon_suggestion\": \"checkmark|book|lightning\",\n          \"headline\": \"Feature headline\",\n          \"description\": \"Benefit-focused description\",\n          \"proof_point\": \"Specific stat or example\"\n        }\n      ],\n      \"chapter_previews\": [\n        {\"chapter\": \"Chapter 1\", \"teaser\": \"What you'll learn...\", \"key_takeaway\": \"...\"}\n      ]\n    },\n    \n    \"social_proof\": {\n      \"section_headline\": \"What people are saying\",\n      \"testimonial_templates\": [\n        {\n          \"quote\": \"Template quote based on expected outcome...\",\n          \"attribution\": \"[Name], [Role]\",\n          \"result_highlight\": \"Specific result to bold\"\n        }\n      ],\n      \"trust_badges\": [\"Research-backed\", \"Expert-reviewed\", \"{{ $json.marketing.source_count }}+ sources cited\"],\n      \"stats_callouts\": [\n        {\"stat\": \"Specific stat\", \"context\": \"Why it matters\"}\n      ]\n    },\n    \n    \"bonuses\": {\n      \"section_headline\": \"But wait, there's more...\",\n      \"intro\": \"When you get [Product] today, you also get:\",\n      \"bonus_items\": [\n        {\n          \"name\": \"Bonus name\",\n          \"description\": \"What it is\",\n          \"value\": \"$XX value\",\n          \"why_valuable\": \"Why they need it\"\n        }\n      ],\n      \"total_value\": \"Total package value: $XXX\",\n      \"your_price\": \"Your price today: [PRICE]\"\n    },\n    \n    \"final_cta\": {\n      \"headline\": \"Ready to [transformation]?\",\n      \"urgency_copy\": \"{{ $json.urgency_level === 'high' ? 'Limited time offer - price increases in 48 hours' : $json.urgency_level === 'medium' ? 'Start your transformation today' : 'Take the first step' }}\",\n      \"button_text\": \"Get Instant Access\",\n      \"guarantee\": {\n        \"type\": \"money-back|satisfaction\",\n        \"duration\": \"30 days\",\n        \"copy\": \"Full guarantee copy...\"\n      },\n      \"final_reminder\": \"PS: Remember, you also get [key bonus]...\"\n    },\n    \n    \"faq\": [\n      {\"question\": \"Common objection as question?\", \"answer\": \"Objection handling answer...\"}\n    ],\n    \n    \"seo\": {\n      \"page_title\": \"SEO page title (60 chars)\",\n      \"meta_description\": \"Meta description (155 chars)\",\n      \"og_title\": \"Social share title\",\n      \"og_description\": \"Social share description\"\n    }\n  }\n}",
+              "role": "system"
+            },
+            {
+              "content": "Create the complete landing page copy. Every section should flow naturally and build toward the purchase decision. Include multiple variants for A/B testing where appropriate."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.6,
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        2180,
+        400
+      ],
+      "id": "generate-landing",
+      "name": "Generate Landing Page",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## PHASE 4: EMAIL & ADS\n\nGenerate email and ad copy:\n\n**Email Subject Lines (10)**\n- Curiosity hooks\n- Benefit-driven\n- Urgency-based\n- Question format\n- Number-driven\n\n**Email Preview Text (5)**\n- Complements subject lines\n\n**Ad Copy Variants (6)**\n- Facebook/Instagram (3)\n- Google/Search (3)\n\n**Lead Magnet Copy**\n- First chapter teaser\n- Download page copy",
+        "height": 320,
+        "width": 340
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2520,
+        40
+      ],
+      "id": "email-note",
+      "name": "Email & Ads Note"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an email marketing and advertising specialist. Create email subject lines, ad copy, and lead magnet content.\n\n## PRODUCT INFO\nTitle: {{ $json.marketing.title }}\nFormat: {{ $json.marketing.format }}\n\n## KEY BENEFITS\n{{ $json.marketing.solutions.map(s => '- ' + s.text).join('\\n') }}\n\n## PAIN POINTS\n{{ $json.marketing.pain_points.map(p => '- ' + p.text).join('\\n') }}\n\n## STATISTICS\n{{ $json.marketing.statistics.slice(0, 5).map(s => '- ' + s.stat).join('\\n') }}\n\n## FIRST CHAPTER PREVIEW\n{{ $json.marketing.first_sections[0] ? `Title: ${$json.marketing.first_sections[0].title}\\nKey Points:\\n${($json.marketing.first_sections[0].key_points || []).map(p => '- ' + p).join('\\n')}` : 'No preview available' }}\n\n## TONE: {{ $json.tone }}\n## URGENCY: {{ $json.urgency_level }}\n\n## OUTPUT JSON\n{\n  \"email_marketing\": {\n    \"subject_lines\": [\n      {\"subject\": \"Subject line text\", \"type\": \"curiosity|benefit|urgency|question|number\", \"open_rate_prediction\": \"high|medium|low\"},\n      // 10 total, diverse types\n    ],\n    \"preview_texts\": [\n      {\"preview\": \"Preview text...\", \"pairs_with_subject\": 0}\n    ],\n    \"welcome_sequence_hooks\": [\n      {\"email_number\": 1, \"subject\": \"...\", \"hook_paragraph\": \"First paragraph of email...\", \"cta\": \"...\"}\n    ]\n  },\n  \n  \"ad_copy\": {\n    \"facebook_instagram\": [\n      {\n        \"headline\": \"Ad headline (40 chars)\",\n        \"primary_text\": \"Main ad copy (125 chars for optimal)\",\n        \"description\": \"Link description\",\n        \"cta_button\": \"Learn More|Download|Sign Up\",\n        \"hook_type\": \"pain|benefit|curiosity\",\n        \"target_audience\": \"Who this variant targets\"\n      }\n    ],\n    \"google_search\": [\n      {\n        \"headline_1\": \"30 chars max\",\n        \"headline_2\": \"30 chars max\",\n        \"headline_3\": \"30 chars max\",\n        \"description_1\": \"90 chars max\",\n        \"description_2\": \"90 chars max\",\n        \"target_keywords\": [\"keyword1\", \"keyword2\"]\n      }\n    ]\n  },\n  \n  \"lead_magnet\": {\n    \"download_page\": {\n      \"headline\": \"Your free [thing] is ready!\",\n      \"subheadline\": \"Check your email or download directly below\",\n      \"what_you_get\": [\"Bullet 1\", \"Bullet 2\"],\n      \"next_step_tease\": \"Tease for the full product...\"\n    },\n    \"first_chapter_teaser\": {\n      \"title\": \"Chapter 1 title\",\n      \"intro_paragraph\": \"Opening that hooks them...\",\n      \"key_insight_preview\": \"One powerful insight from the chapter...\",\n      \"cliffhanger\": \"But that's just the beginning. In the full guide, you'll discover...\"\n    }\n  }\n}",
+              "role": "system"
+            },
+            {
+              "content": "Create the email and ad copy package. Subject lines should be diverse - test different psychological triggers. Ad copy should be platform-optimized. Lead magnet content should create desire for the full product."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        2560,
+        400
+      ],
+      "id": "generate-email-ads",
+      "name": "Generate Email & Ads",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse all generated content\nconst inputData = $('Parse Marketing Context').first().json;\n\n// Parse social posts\nlet socialPosts = { social_posts: {} };\ntry {\n  const socialRaw = $('Generate Social Posts').first().json.message?.content || '{}';\n  socialPosts = typeof socialRaw === 'string' ? JSON.parse(socialRaw) : socialRaw;\n} catch (e) { console.error('Social parse error:', e); }\n\n// Parse video scripts\nlet videoScripts = { video_scripts: {} };\ntry {\n  const videoRaw = $('Generate Video Scripts').first().json.message?.content || '{}';\n  videoScripts = typeof videoRaw === 'string' ? JSON.parse(videoRaw) : videoRaw;\n} catch (e) { console.error('Video parse error:', e); }\n\n// Parse landing page\nlet landingPage = { landing_page: {} };\ntry {\n  const landingRaw = $('Generate Landing Page').first().json.message?.content || '{}';\n  landingPage = typeof landingRaw === 'string' ? JSON.parse(landingRaw) : landingRaw;\n} catch (e) { console.error('Landing parse error:', e); }\n\n// Parse email & ads\nlet emailAds = { email_marketing: {}, ad_copy: {}, lead_magnet: {} };\ntry {\n  const emailRaw = $('Generate Email & Ads').first().json.message?.content || '{}';\n  emailAds = typeof emailRaw === 'string' ? JSON.parse(emailRaw) : emailRaw;\n} catch (e) { console.error('Email/Ads parse error:', e); }\n\n// Count assets generated\nconst assetCounts = {\n  social_posts: Object.values(socialPosts.social_posts || {}).flat().length,\n  video_scripts: (\n    (videoScripts.video_scripts?.tiktok_reels?.length || 0) +\n    (videoScripts.video_scripts?.youtube_shorts?.length || 0) +\n    (videoScripts.video_scripts?.youtube_long ? 1 : 0)\n  ),\n  landing_page_sections: Object.keys(landingPage.landing_page || {}).length,\n  email_subjects: emailAds.email_marketing?.subject_lines?.length || 0,\n  ad_variants: (\n    (emailAds.ad_copy?.facebook_instagram?.length || 0) +\n    (emailAds.ad_copy?.google_search?.length || 0)\n  )\n};\n\nconst totalAssets = Object.values(assetCounts).reduce((a, b) => a + b, 0);\n\n// Extract image generation requests\nconst imageRequests = [];\n\n// From social posts - visual directions\nfor (const [platform, posts] of Object.entries(socialPosts.social_posts || {})) {\n  for (const post of (posts || [])) {\n    if (post.visual_direction) {\n      imageRequests.push({\n        type: 'social_graphic',\n        platform: platform,\n        direction: post.visual_direction,\n        copy_preview: post.copy?.substring(0, 50)\n      });\n    }\n  }\n}\n\n// From video scripts - thumbnails\nif (videoScripts.video_scripts?.youtube_long?.thumbnail_concept) {\n  imageRequests.push({\n    type: 'youtube_thumbnail',\n    direction: videoScripts.video_scripts.youtube_long.thumbnail_concept\n  });\n}\n\n// From landing page - hero image\nif (landingPage.landing_page?.hero?.hero_image_direction) {\n  imageRequests.push({\n    type: 'hero_image',\n    direction: landingPage.landing_page.hero.hero_image_direction\n  });\n}\n\nreturn [{\n  json: {\n    ...inputData,\n    package: {\n      social_posts: socialPosts.social_posts || {},\n      video_scripts: videoScripts.video_scripts || {},\n      landing_page: landingPage.landing_page || {},\n      email_marketing: emailAds.email_marketing || {},\n      ad_copy: emailAds.ad_copy || {},\n      lead_magnet: emailAds.lead_magnet || {}\n    },\n    asset_counts: assetCounts,\n    total_assets: totalAssets,\n    image_requests: imageRequests\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        400
+      ],
+      "id": "merge-package",
+      "name": "Merge Complete Package"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build final teaser package for storage\nconst data = $input.first().json;\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(data.started_at);\n\nreturn [{\n  json: {\n    // Identifiers\n    outline_id: data.outline_id,\n    topic: data.topic,\n    title: data.marketing.title,\n    session_id: data.session_id,\n    \n    // Package config\n    package_type: data.package_type,\n    platforms: JSON.stringify(data.platforms),\n    tone: data.tone,\n    urgency_level: data.urgency_level,\n    \n    // Social posts\n    social_posts: JSON.stringify(data.package.social_posts),\n    social_post_count: data.asset_counts.social_posts,\n    \n    // Video scripts\n    video_scripts: JSON.stringify(data.package.video_scripts),\n    video_script_count: data.asset_counts.video_scripts,\n    \n    // Landing page\n    landing_page: JSON.stringify(data.package.landing_page),\n    landing_page_sections: data.asset_counts.landing_page_sections,\n    \n    // Email marketing\n    email_marketing: JSON.stringify(data.package.email_marketing),\n    email_subject_count: data.asset_counts.email_subjects,\n    \n    // Ad copy\n    ad_copy: JSON.stringify(data.package.ad_copy),\n    ad_variant_count: data.asset_counts.ad_variants,\n    \n    // Lead magnet\n    lead_magnet: JSON.stringify(data.package.lead_magnet),\n    \n    // Image requests for W13\n    image_requests: JSON.stringify(data.image_requests),\n    image_request_count: data.image_requests.length,\n    \n    // Totals\n    total_assets: data.total_assets,\n    \n    // Callbacks\n    callback_workflow: data.callback_workflow,\n    auto_trigger_image_gen: data.auto_trigger_image_gen,\n    \n    // Timing\n    started_at: data.started_at,\n    completed_at: completedAt,\n    duration_seconds: Math.round(durationMs / 1000),\n    \n    // Status\n    status: 'ready'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3020,
+        400
+      ],
+      "id": "build-package",
+      "name": "Build Storage Package"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblMarketing",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ 'Teaser Package: ' + $json.title }}",
+            "Outline": "={{ [$json.outline_id] }}",
+            "Type": "teaser_package",
+            "Package Type": "={{ $json.package_type }}",
+            "Platforms": "={{ $json.platforms }}",
+            "Tone": "={{ $json.tone }}",
+            "Social Posts": "={{ $json.social_posts }}",
+            "Social Post Count": "={{ $json.social_post_count }}",
+            "Video Scripts": "={{ $json.video_scripts }}",
+            "Video Script Count": "={{ $json.video_script_count }}",
+            "Landing Page": "={{ $json.landing_page }}",
+            "Email Marketing": "={{ $json.email_marketing }}",
+            "Ad Copy": "={{ $json.ad_copy }}",
+            "Lead Magnet": "={{ $json.lead_magnet }}",
+            "Image Requests": "={{ $json.image_requests }}",
+            "Total Assets": "={{ $json.total_assets }}",
+            "Status": "ready"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        3240,
+        400
+      ],
+      "id": "save-package",
+      "name": "Save to Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_AIRTABLE_CREDENTIAL",
+          "name": "Airtable"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "auto-trigger-images",
+              "leftValue": "={{ $('Build Storage Package').first().json.auto_trigger_image_gen }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "has-image-requests",
+              "leftValue": "={{ $('Build Storage Package').first().json.image_request_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3460,
+        400
+      ],
+      "id": "check-image-trigger",
+      "name": "Trigger Image Gen?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/image-generator",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"teaser_package_id\": \"{{ $('Save to Airtable').first().json.id }}\",\n  \"outline_id\": \"{{ $('Build Storage Package').first().json.outline_id }}\",\n  \"title\": \"{{ $('Build Storage Package').first().json.title }}\",\n  \"image_requests\": {{ $('Build Storage Package').first().json.image_requests }}\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3680,
+        300
+      ],
+      "id": "trigger-image-gen",
+      "name": "Trigger W13: Image Generator",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-callback",
+              "leftValue": "={{ $('Build Storage Package').first().json.callback_workflow }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3900,
+        400
+      ],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Build Storage Package').first().json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"teaser_package_id\": \"{{ $('Save to Airtable').first().json.id }}\",\n  \"outline_id\": \"{{ $('Build Storage Package').first().json.outline_id }}\",\n  \"title\": \"{{ $('Build Storage Package').first().json.title }}\",\n  \"total_assets\": {{ $('Build Storage Package').first().json.total_assets }}\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4120,
+        300
+      ],
+      "id": "trigger-callback",
+      "name": "Trigger Callback"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build comprehensive response\nconst packageData = $('Build Storage Package').first().json;\nconst airtableRecord = $('Save to Airtable').first().json;\n\n// Summarize what was generated\nconst socialSummary = {};\nconst socialPosts = JSON.parse(packageData.social_posts || '{}');\nfor (const [platform, posts] of Object.entries(socialPosts)) {\n  socialSummary[platform] = (posts || []).length;\n}\n\nconst videoSummary = {\n  tiktok_reels: 0,\n  youtube_shorts: 0,\n  youtube_long: 0\n};\nconst videoScripts = JSON.parse(packageData.video_scripts || '{}');\nvideoSummary.tiktok_reels = videoScripts.tiktok_reels?.length || 0;\nvideoSummary.youtube_shorts = videoScripts.youtube_shorts?.length || 0;\nvideoSummary.youtube_long = videoScripts.youtube_long ? 1 : 0;\n\nreturn [{\n  json: {\n    success: true,\n    teaser_package_id: airtableRecord.id,\n    \n    // Product info\n    title: packageData.title,\n    outline_id: packageData.outline_id,\n    \n    // Configuration\n    config: {\n      package_type: packageData.package_type,\n      platforms: JSON.parse(packageData.platforms || '[]'),\n      tone: packageData.tone,\n      urgency_level: packageData.urgency_level\n    },\n    \n    // Asset summary\n    assets_generated: {\n      social_posts: {\n        total: packageData.social_post_count,\n        by_platform: socialSummary\n      },\n      video_scripts: {\n        total: packageData.video_script_count,\n        breakdown: videoSummary\n      },\n      landing_page: {\n        sections: packageData.landing_page_sections\n      },\n      email_marketing: {\n        subject_lines: packageData.email_subject_count\n      },\n      ad_copy: {\n        variants: packageData.ad_variant_count\n      },\n      images_requested: packageData.image_request_count\n    },\n    \n    // Totals\n    total_assets: packageData.total_assets,\n    \n    // Timing\n    duration_seconds: packageData.duration_seconds,\n    \n    // Triggered workflows\n    triggered: {\n      image_generator: packageData.auto_trigger_image_gen && packageData.image_request_count > 0,\n      callback: packageData.callback_workflow || null\n    },\n    \n    // Links\n    links: {\n      airtable: `https://airtable.com/appXXXXXXXXXXXXXX/tblMarketing/${airtableRecord.id}`,\n      export_social: `/api/teaser/${airtableRecord.id}/export/social`,\n      export_video: `/api/teaser/${airtableRecord.id}/export/video`,\n      export_landing: `/api/teaser/${airtableRecord.id}/export/landing`\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4340,
+        400
+      ],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        4560,
+        400
+      ],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Teaser Package Request": {
+      "main": [[{"node": "Validate & Configure", "type": "main", "index": 0}]]
+    },
+    "Validate & Configure": {
+      "main": [[{"node": "Fetch Outline from W6", "type": "main", "index": 0}]]
+    },
+    "Fetch Outline from W6": {
+      "main": [[{"node": "Fetch Research", "type": "main", "index": 0}]]
+    },
+    "Fetch Research": {
+      "main": [[{"node": "Parse Marketing Context", "type": "main", "index": 0}]]
+    },
+    "Parse Marketing Context": {
+      "main": [
+        [
+          {"node": "Generate Social Posts", "type": "main", "index": 0},
+          {"node": "Generate Video Scripts", "type": "main", "index": 0},
+          {"node": "Generate Landing Page", "type": "main", "index": 0},
+          {"node": "Generate Email & Ads", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Generate Social Posts": {
+      "main": [[{"node": "Merge Complete Package", "type": "main", "index": 0}]]
+    },
+    "Generate Video Scripts": {
+      "main": [[{"node": "Merge Complete Package", "type": "main", "index": 0}]]
+    },
+    "Generate Landing Page": {
+      "main": [[{"node": "Merge Complete Package", "type": "main", "index": 0}]]
+    },
+    "Generate Email & Ads": {
+      "main": [[{"node": "Merge Complete Package", "type": "main", "index": 0}]]
+    },
+    "Merge Complete Package": {
+      "main": [[{"node": "Build Storage Package", "type": "main", "index": 0}]]
+    },
+    "Build Storage Package": {
+      "main": [[{"node": "Save to Airtable", "type": "main", "index": 0}]]
+    },
+    "Save to Airtable": {
+      "main": [[{"node": "Trigger Image Gen?", "type": "main", "index": 0}]]
+    },
+    "Trigger Image Gen?": {
+      "main": [
+        [{"node": "Trigger W13: Image Generator", "type": "main", "index": 0}],
+        [{"node": "Has Callback?", "type": "main", "index": 0}]
+      ]
+    },
+    "Trigger W13: Image Generator": {
+      "main": [[{"node": "Has Callback?", "type": "main", "index": 0}]]
+    },
+    "Has Callback?": {
+      "main": [
+        [{"node": "Trigger Callback", "type": "main", "index": 0}],
+        [{"node": "Build Response", "type": "main", "index": 0}]
+      ]
+    },
+    "Trigger Callback": {
+      "main": [[{"node": "Build Response", "type": "main", "index": 0}]]
+    },
+    "Build Response": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "W7-teaser-package-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "id": "W7-TeaserPackageGenerator",
+  "tags": []
+}

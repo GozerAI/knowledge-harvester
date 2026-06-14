@@ -1,0 +1,28 @@
+# Programmable Harvester Definition — Google Cloud Workflows
+
+name: google-workflows
+description: Google Cloud Workflows definitions for service orchestration and API integration
+artifact_type: workflow
+tool_type: google-workflows
+language: yaml
+
+queries:
+  - query: '"main:" "steps:" "call:" extension:yaml'
+    label: google-workflows-call
+  - query: '"steps:" "assign:" "switch:" extension:yml'
+    label: google-workflows-branching
+  - query: '"main:" "steps:" "http." extension:yaml'
+    label: google-workflows-http
+
+validation:
+  min_size: 80
+  max_size: 300000
+  extensions: [yaml, yml, json]
+  required_patterns:
+    - 'main:|"main"'
+    - 'steps:|"steps"'
+    - 'call:|assign:|switch:|next:'
+
+metadata:
+  framework: google-workflows
+  default_category: cloud-orchestration

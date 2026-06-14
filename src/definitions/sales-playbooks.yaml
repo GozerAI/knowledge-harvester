@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Sales Playbooks
+
+name: sales-playbooks
+description: Sales process docs, qualification guides, handoff playbooks, and lifecycle procedures
+artifact_type: documentation
+tool_type: revenue-ops
+language: markdown
+
+queries:
+  - query: '"sales playbook" "qualification" extension:md'
+    label: sales-playbook
+  - query: '"lead routing" "handoff" extension:md'
+    label: lead-routing
+  - query: '"account executive" "discovery" "checklist" extension:md'
+    label: sales-discovery
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)sales|qualification|handoff|lead|pipeline|discovery'
+
+metadata:
+  framework: revenue-ops
+  default_category: support-doc

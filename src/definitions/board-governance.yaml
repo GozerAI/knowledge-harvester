@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Board Governance
+
+name: board-governance
+description: Board charters, committee governance docs, and executive decision records
+artifact_type: documentation
+tool_type: governance
+language: markdown
+
+queries:
+  - query: '"board charter" extension:md'
+    label: board-charter
+  - query: '"committee charter" extension:md'
+    label: committee-charter
+  - query: '"board resolution" extension:md'
+    label: board-resolution
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)board|committee|charter|resolution|governance|meeting'
+
+metadata:
+  framework: governance
+  default_category: policy

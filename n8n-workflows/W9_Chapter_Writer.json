@@ -1,0 +1,226 @@
+{
+  "name": "W9: Intelligent Chapter Writer",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W9: Intelligent Chapter Writer\n\n## USES N8N DATA TABLES + LOCAL FILES\n\nThis workflow:\n- Reads outlines from **outlines_data** table\n- Saves chapters to **chapters_data** table\n- Writes .md file for each chapter to **C:/dev/production_line/chapters/**\n\n## Output Files\n- chapter_{n}_{title}.md - Individual chapter files\n\n## Cost: ~$0.03-0.08 per section",
+        "height": 320,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chapter-writer",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Chapter Writer Request",
+      "webhookId": "chapter-writer-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\n\nconst outlineId = input.outline_id;\nif (!outlineId) {\n  throw new Error('Must provide outline_id');\n}\n\nconst mode = input.mode || 'full';\nconst sectionNumbers = input.section_numbers || [];\nconst skipSections = input.skip_sections || [];\n\nconst defaultStyle = {\n  tone: 'professional',\n  reading_level: 'general',\n  pov: 'second',\n  use_analogies: true,\n  use_examples: true,\n  include_summaries: true,\n  include_action_items: true\n};\nconst style = { ...defaultStyle, ...(input.style || {}) };\n\nreturn [{\n  json: {\n    outline_id: outlineId,\n    mode: mode,\n    section_numbers: mode === 'full' ? 'all' : sectionNumbers,\n    skip_sections: skipSections,\n    style: style,\n    quality_threshold: input.quality_threshold || 70,\n    callback_workflow: input.callback_workflow || null,\n    session_id: `chapter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": { "__rl": true, "value": "outlines_data", "mode": "list" },
+        "filters": {
+          "conditions": [
+            { "column": "outline_id", "value": "={{ $json.outline_id }}" }
+          ]
+        },
+        "options": { "limit": 1 }
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [760, 400],
+      "id": "fetch-outline",
+      "name": "Get Outline from Table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Validate & Configure').first().json;\nconst outline = $input.first().json;\n\nlet sections = [];\ntry { sections = JSON.parse(outline.sections || '[]'); } catch(e) {}\n\nlet sectionsToWrite = [];\nif (config.section_numbers === 'all') {\n  sectionsToWrite = sections.filter(s => !config.skip_sections.includes(s.number));\n} else {\n  const nums = Array.isArray(config.section_numbers) ? config.section_numbers : [config.section_numbers];\n  sectionsToWrite = sections.filter(s => nums.includes(s.number));\n}\n\nif (sectionsToWrite.length === 0) sectionsToWrite = sections;\n\nconst globalContext = {\n  title: outline.title,\n  subtitle: outline.subtitle,\n  format: outline.format,\n  total_sections: sections.length\n};\n\nreturn sectionsToWrite.map(section => ({\n  json: {\n    ...config,\n    section: section,\n    global_context: globalContext,\n    outline_record_id: outline.outline_id\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 400],
+      "id": "prepare-sections",
+      "name": "Prepare Sections"
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list" },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an expert content writer.\n\n## STYLE\n- Tone: {{ $json.style.tone }}\n- POV: {{ $json.style.pov === 'second' ? 'Second person (you)' : 'Third person' }}\n- Use Examples: {{ $json.style.use_examples }}\n- Include Summaries: {{ $json.style.include_summaries }}\n\n## CONTEXT\nTitle: {{ $json.global_context.title }}\nSection {{ $json.section.number }} of {{ $json.global_context.total_sections }}\nSection Title: {{ $json.section.title }}\nTarget Words: {{ $json.section.target_words || 1000 }}\n\n## KEY POINTS\n{{ ($json.section.key_points || []).map((p, i) => `${i + 1}. ${p}`).join('\\n') }}\n\n## OUTPUT\nWrite in Markdown. Start with ## Title. Target {{ $json.section.target_words || 1000 }} words.",
+              "role": "system"
+            },
+            { "content": "Write section {{ $json.section.number }}: \"{{ $json.section.title }}\"" }
+          ]
+        },
+        "options": { "temperature": 0.7, "maxTokens": 4000 }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [1200, 400],
+      "id": "generate-content",
+      "name": "Generate Content",
+      "credentials": { "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL", "name": "OpenAI" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Prepare Sections').item.json;\nconst content = $input.item.json.message?.content || '';\n\nconst wordCount = content.split(/\\s+/).filter(w => w.length > 0).length;\nconst targetWords = inputData.section.target_words || 1000;\nconst variance = Math.abs(wordCount - targetWords) / targetWords;\n\nlet score = 50;\nscore += (variance <= 0.15) ? 20 : Math.max(0, 20 - (variance * 100));\nscore += content.includes('## ') ? 10 : 0;\nscore += content.includes('### ') ? 10 : 0;\nscore = Math.min(100, Math.round(score));\n\nconst chapterId = `chapter_${inputData.session_id}_s${inputData.section.number}`;\n\n// Build markdown file content with metadata header\nlet markdown = `# Chapter ${inputData.section.number}: ${inputData.section.title}\\n\\n`;\nmarkdown += `**Book:** ${inputData.global_context.title}\\n`;\nmarkdown += `**Chapter ID:** ${chapterId}\\n`;\nmarkdown += `**Word Count:** ${wordCount}\\n`;\nmarkdown += `**Quality Score:** ${score}/100\\n`;\nmarkdown += `**Generated:** ${new Date().toISOString()}\\n\\n`;\nmarkdown += `---\\n\\n`;\nmarkdown += content;\nmarkdown += `\\n\\n---\\n\\n*Generated by Production Line W9 Chapter Writer*\\n`;\n\n// Create safe filename\nconst safeTitle = inputData.section.title\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-|-$/g, '')\n  .substring(0, 30);\nconst timestamp = new Date().toISOString().split('T')[0];\nconst fileName = `chapter_${String(inputData.section.number).padStart(2, '0')}_${safeTitle}_${timestamp}.md`;\nconst filePath = `C:/dev/production_line/chapters/${fileName}`;\n\nreturn [{\n  json: {\n    chapter_id: chapterId,\n    outline_id: inputData.outline_record_id,\n    section_number: inputData.section.number,\n    title: inputData.section.title,\n    type: inputData.section.type,\n    content: content,\n    word_count: wordCount,\n    target_words: targetWords,\n    quality_score: score,\n    style: JSON.stringify(inputData.style),\n    file_path: filePath,\n    markdown_content: markdown,\n    callback_workflow: inputData.callback_workflow,\n    session_id: inputData.session_id,\n    status: 'draft'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1420, 400],
+      "id": "build-record",
+      "name": "Build Chapter Record"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": { "__rl": true, "value": "chapters_data", "mode": "list" },
+        "columns": { "mappingMode": "autoMapInputData", "value": {} },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [1640, 400],
+      "id": "save-to-data-table",
+      "name": "Save to Data Table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Build Chapter Record').item.json;\nconst content = data.markdown_content;\n\nconst binaryData = Buffer.from(content, 'utf-8');\n\nreturn [{\n  json: {\n    file_path: data.file_path,\n    chapter_id: data.chapter_id\n  },\n  binary: {\n    data: {\n      data: binaryData.toString('base64'),\n      mimeType: 'text/markdown',\n      fileName: data.file_path.split('/').pop()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 280],
+      "id": "prepare-file-binary",
+      "name": "Prepare File Binary"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $json.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [1860, 280],
+      "id": "write-chapter-file",
+      "name": "Write Chapter File"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [2080, 400],
+      "id": "collect-results",
+      "name": "Collect Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allContent = $input.first().json.data || [];\nconst config = $('Validate & Configure').first().json;\n\nconst totalWords = allContent.reduce((sum, c) => sum + (c.word_count || 0), 0);\nconst avgQuality = allContent.length > 0 \n  ? Math.round(allContent.reduce((sum, c) => sum + (c.quality_score || 0), 0) / allContent.length) \n  : 0;\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(config.started_at);\n\nreturn [{\n  json: {\n    success: true,\n    mode: config.mode,\n    outline_id: config.outline_id,\n    sections_written: allContent.length,\n    section_summary: allContent.map(c => ({\n      section: c.section_number,\n      title: c.title,\n      words: c.word_count,\n      quality: c.quality_score,\n      file_path: c.file_path\n    })),\n    chapter_ids: allContent.map(c => c.chapter_id),\n    file_paths: allContent.map(c => c.file_path),\n    totals: { words: totalWords, avg_quality: avgQuality },\n    storage: 'n8n_data_table + local_files',\n    duration_seconds: Math.round(durationMs / 1000),\n    ready_for_assembly: config.mode === 'full',\n    callback_workflow: config.callback_workflow\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 400],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "ready", "leftValue": "={{ $json.ready_for_assembly }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } },
+            { "id": "callback", "leftValue": "={{ $json.callback_workflow }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2520, 400],
+      "id": "check-callback",
+      "name": "Trigger Assembler?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"outline_id\": \"{{ $json.outline_id }}\",\n  \"chapter_ids\": {{ JSON.stringify($json.chapter_ids) }},\n  \"total_words\": {{ $json.totals.words }}\n}",
+        "options": { "timeout": 5000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2740, 300],
+      "id": "trigger-callback",
+      "name": "Trigger Callback",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('Build Response').first().json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2960, 400],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "connections": {
+    "Chapter Writer Request": { "main": [[{ "node": "Validate & Configure", "type": "main", "index": 0 }]] },
+    "Validate & Configure": { "main": [[{ "node": "Get Outline from Table", "type": "main", "index": 0 }]] },
+    "Get Outline from Table": { "main": [[{ "node": "Prepare Sections", "type": "main", "index": 0 }]] },
+    "Prepare Sections": { "main": [[{ "node": "Generate Content", "type": "main", "index": 0 }]] },
+    "Generate Content": { "main": [[{ "node": "Build Chapter Record", "type": "main", "index": 0 }]] },
+    "Build Chapter Record": { "main": [[{ "node": "Save to Data Table", "type": "main", "index": 0 }, { "node": "Prepare File Binary", "type": "main", "index": 0 }]] },
+    "Save to Data Table": { "main": [[{ "node": "Collect Results", "type": "main", "index": 0 }]] },
+    "Prepare File Binary": { "main": [[{ "node": "Write Chapter File", "type": "main", "index": 0 }]] },
+    "Write Chapter File": { "main": [[{ "node": "Collect Results", "type": "main", "index": 0 }]] },
+    "Collect Results": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Trigger Assembler?", "type": "main", "index": 0 }]] },
+    "Trigger Assembler?": {
+      "main": [
+        [{ "node": "Trigger Callback", "type": "main", "index": 0 }],
+        [{ "node": "Respond", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger Callback": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "W9-data-tables-local-files-v1",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "" },
+  "id": "tVyFBXTyr2bsFRE8",
+  "tags": []
+}

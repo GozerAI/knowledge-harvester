@@ -1,0 +1,297 @@
+{
+  "name": "W6: Intelligent Outline Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W6: Intelligent Outline Generator\n\n## USES N8N DATA TABLES + LOCAL FILES\n\nThis workflow:\n- Reads research from **research_data** table\n- Saves outlines to **outlines_data** table\n- Writes .md file to **C:/dev/production_line/outlines/**\n\n## Output Files\n- outline_{id}.md - Formatted outline document\n\n## Cost: ~$0.03-0.06 per outline",
+        "height": 320,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outline-generator",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Outline Request",
+      "webhookId": "outline-generator-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\n\nconst topic = input.topic;\nconst topicId = input.topic_id || `topic_${Date.now()}`;\nconst researchId = input.research_id;\n\nif (!topic && !researchId) {\n  throw new Error('Must provide topic or research_id');\n}\n\nconst format = input.format || 'ebook';\nconst targetLength = input.target_length || 'medium';\nconst style = input.style || 'practical';\nconst callbackWorkflow = input.callback_workflow || null;\n\nconst validFormats = ['ebook', 'course', 'blog_series', 'lead_magnet'];\nif (!validFormats.includes(format)) {\n  throw new Error(`Invalid format: ${format}`);\n}\n\nconst formatConfig = {\n  ebook: { minSections: 8, maxSections: 14, wordsPerSection: { short: 800, medium: 1200, long: 2000 } },\n  course: { minSections: 4, maxSections: 8, lessonsPerModule: { short: 3, medium: 5, long: 7 } },\n  blog_series: { minSections: 5, maxSections: 10, wordsPerPost: { short: 800, medium: 1500, long: 2500 } },\n  lead_magnet: { minSections: 3, maxSections: 5, wordsPerSection: { short: 400, medium: 600, long: 1000 } }\n};\n\nreturn [{\n  json: {\n    topic: topic,\n    topic_id: topicId,\n    research_id: researchId,\n    format: format,\n    target_length: targetLength,\n    style: style,\n    config: formatConfig[format],\n    callback_workflow: callbackWorkflow,\n    session_id: `outline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "has-research-id", "leftValue": "={{ $json.research_id }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [760, 400],
+      "id": "check-research-id",
+      "name": "Has Research ID?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": { "__rl": true, "value": "research_data", "mode": "list" },
+        "filters": {
+          "conditions": [
+            { "column": "research_id", "value": "={{ $('Validate & Configure').first().json.research_id }}" }
+          ]
+        },
+        "options": { "limit": 1 }
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [980, 300],
+      "id": "fetch-research",
+      "name": "Get Research from Table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Validate & Configure').first().json;\nreturn [{\n  json: {\n    ...config,\n    research: {\n      summary: `Research on ${config.topic}`,\n      key_themes: [],\n      top_insights: [],\n      quotes: [],\n      statistics: []\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [980, 500],
+      "id": "no-research",
+      "name": "Generate Without Research"
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $('Validate & Configure').first().json;\nconst tableData = $input.first().json;\n\nlet insights = [], quotes = [], statistics = [], sources = [], keyThemes = [];\ntry { insights = JSON.parse(tableData.insights || '[]'); } catch(e) {}\ntry { quotes = JSON.parse(tableData.quotes || '[]'); } catch(e) {}\ntry { statistics = JSON.parse(tableData.statistics || '[]'); } catch(e) {}\ntry { sources = JSON.parse(tableData.sources || '[]'); } catch(e) {}\ntry { keyThemes = JSON.parse(tableData.key_themes || '[]'); } catch(e) {}\n\nconst research = {\n  summary: tableData.summary || '',\n  quality_score: tableData.quality_score || 70,\n  depth: tableData.depth || 'medium',\n  top_insights: insights.slice(0, 15),\n  key_themes: keyThemes,\n  quotes: quotes.slice(0, 10),\n  statistics: statistics.slice(0, 15),\n  sources: sources.slice(0, 20)\n};\n\nreturn [{\n  json: {\n    ...config,\n    topic: config.topic || tableData.topic,\n    research: research,\n    research_record_id: tableData.research_id\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300],
+      "id": "parse-research",
+      "name": "Parse Research Data"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1420, 400],
+      "id": "merge-paths",
+      "name": "Merge Paths"
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list" },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a bestselling title strategist. Create 5 compelling titles.\n\nOutput JSON:\n{\n  \"titles\": [\n    { \"title\": \"...\", \"subtitle\": \"...\", \"hook_type\": \"curiosity|fear|aspiration\", \"overall_score\": 8.2 }\n  ],\n  \"recommended_title_index\": 0,\n  \"recommendation_reason\": \"Why this title wins\"\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Create 5 titles for this {{ $json.format }} about: {{ $json.topic }}\n\nKey Themes: {{ $json.research.key_themes?.join(', ') || 'N/A' }}"
+            }
+          ]
+        },
+        "options": { "temperature": 0.7, "responseFormat": "json_object" }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [1640, 400],
+      "id": "generate-titles",
+      "name": "Generate Titles",
+      "credentials": { "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL", "name": "OpenAI" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Merge Paths').first().json;\nconst titlesRaw = $input.first().json.message?.content || '{}';\n\nlet titlesData = { titles: [], recommended_title_index: 0 };\ntry { titlesData = JSON.parse(titlesRaw); } catch (e) {}\n\nconst titles = titlesData.titles || [];\nconst winner = titles[titlesData.recommended_title_index || 0] || { title: inputData.topic, subtitle: '' };\n\nreturn [{\n  json: {\n    ...inputData,\n    all_titles: titles,\n    selected_title: winner.title,\n    selected_subtitle: winner.subtitle || ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 400],
+      "id": "select-title",
+      "name": "Select Best Title"
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o", "mode": "list" },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an expert content architect. Create a detailed {{ $json.format }} outline with {{ $json.config.minSections }}-{{ $json.config.maxSections }} sections.\n\nOutput JSON:\n{\n  \"outline\": {\n    \"title\": \"{{ $json.selected_title }}\",\n    \"subtitle\": \"{{ $json.selected_subtitle }}\",\n    \"format\": \"{{ $json.format }}\",\n    \"sections\": [\n      {\n        \"number\": 1,\n        \"type\": \"introduction|chapter|conclusion\",\n        \"title\": \"Section Title\",\n        \"description\": \"What this covers\",\n        \"key_points\": [\"point 1\", \"point 2\"],\n        \"target_words\": 1000\n      }\n    ]\n  }\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Create outline for: {{ $json.selected_title }}\nTopic: {{ $json.topic }}\nResearch Summary: {{ ($json.research.summary || '').substring(0, 1000) }}"
+            }
+          ]
+        },
+        "options": { "temperature": 0.5, "responseFormat": "json_object" }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [2080, 400],
+      "id": "generate-structure",
+      "name": "Generate Outline",
+      "credentials": { "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL", "name": "OpenAI" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputData = $('Select Best Title').first().json;\nconst outlineRaw = $input.first().json.message?.content || '{}';\n\nlet outlineData = { outline: { sections: [] } };\ntry { outlineData = JSON.parse(outlineRaw); } catch (e) {}\n\nconst outline = outlineData.outline || {};\nconst sections = (outline.sections || []).map((s, i) => ({\n  ...s,\n  number: s.number || i + 1,\n  status: 'pending',\n  target_words: s.target_words || 1000\n}));\n\nconst totalWords = sections.reduce((sum, s) => sum + (s.target_words || 0), 0);\nlet qualityScore = 70;\nif (sections.length >= inputData.config.minSections) qualityScore += 15;\nif (sections.every(s => s.key_points?.length >= 2)) qualityScore += 10;\nqualityScore = Math.min(100, qualityScore);\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(inputData.started_at);\n\nconst outlineId = `outline_${inputData.session_id}`;\n\n// Build Markdown document\nlet markdown = `# ${outline.title || inputData.selected_title}\\n\\n`;\nif (outline.subtitle || inputData.selected_subtitle) {\n  markdown += `### ${outline.subtitle || inputData.selected_subtitle}\\n\\n`;\n}\nmarkdown += `**Outline ID:** ${outlineId}\\n`;\nmarkdown += `**Format:** ${inputData.format}\\n`;\nmarkdown += `**Sections:** ${sections.length}\\n`;\nmarkdown += `**Target Words:** ${totalWords.toLocaleString()}\\n`;\nmarkdown += `**Quality Score:** ${qualityScore}/100\\n`;\nmarkdown += `**Generated:** ${completedAt}\\n\\n`;\nmarkdown += `---\\n\\n`;\n\nmarkdown += `## Table of Contents\\n\\n`;\nsections.forEach(s => {\n  markdown += `${s.number}. ${s.title}\\n`;\n});\nmarkdown += `\\n---\\n\\n`;\n\nmarkdown += `## Detailed Outline\\n\\n`;\nsections.forEach(section => {\n  markdown += `### ${section.number}. ${section.title}\\n\\n`;\n  markdown += `**Type:** ${section.type}\\n`;\n  markdown += `**Target Words:** ${section.target_words}\\n\\n`;\n  if (section.description) {\n    markdown += `${section.description}\\n\\n`;\n  }\n  if (section.key_points?.length) {\n    markdown += `**Key Points:**\\n`;\n    section.key_points.forEach(point => {\n      markdown += `- ${point}\\n`;\n    });\n    markdown += `\\n`;\n  }\n  markdown += `---\\n\\n`;\n});\n\nmarkdown += `*Generated by Production Line W6 Outline Generator*\\n`;\n\n// Create safe filename\nconst safeTitle = (outline.title || inputData.topic)\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-|-$/g, '')\n  .substring(0, 40);\nconst timestamp = new Date().toISOString().split('T')[0];\nconst fileName = `${safeTitle}_outline_${timestamp}.md`;\nconst filePath = `C:/dev/production_line/outlines/${fileName}`;\n\nconst outlinePackage = {\n  outline_id: outlineId,\n  research_id: inputData.research_record_id || inputData.research_id,\n  topic: inputData.topic,\n  topic_id: inputData.topic_id,\n  title: outline.title || inputData.selected_title,\n  subtitle: outline.subtitle || inputData.selected_subtitle,\n  format: inputData.format,\n  style: inputData.style,\n  section_count: sections.length,\n  total_target_words: totalWords,\n  sections: JSON.stringify(sections),\n  all_titles: JSON.stringify(inputData.all_titles || []),\n  quality_score: qualityScore,\n  file_path: filePath,\n  markdown_content: markdown,\n  callback_workflow: inputData.callback_workflow,\n  started_at: inputData.started_at,\n  completed_at: completedAt,\n  duration_seconds: Math.round(durationMs / 1000),\n  status: 'ready'\n};\n\nreturn [{ json: outlinePackage }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 400],
+      "id": "build-package",
+      "name": "Build Outline Package"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": { "__rl": true, "value": "outlines_data", "mode": "list" },
+        "columns": { "mappingMode": "autoMapInputData", "value": {} },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [2520, 400],
+      "id": "save-to-data-table",
+      "name": "Save to Data Table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Build Outline Package').first().json;\nconst content = data.markdown_content;\n\nconst binaryData = Buffer.from(content, 'utf-8');\n\nreturn [{\n  json: {\n    file_path: data.file_path\n  },\n  binary: {\n    data: {\n      data: binaryData.toString('base64'),\n      mimeType: 'text/markdown',\n      fileName: data.file_path.split('/').pop()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 280],
+      "id": "prepare-file-binary",
+      "name": "Prepare File Binary"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $json.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2740, 280],
+      "id": "write-outline-file",
+      "name": "Write Outline File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "has-callback", "leftValue": "={{ $('Build Outline Package').first().json.callback_workflow }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2960, 400],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Build Outline Package').first().json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"outline_id\": \"{{ $('Build Outline Package').first().json.outline_id }}\",\n  \"title\": \"{{ $('Build Outline Package').first().json.title }}\",\n  \"section_count\": {{ $('Build Outline Package').first().json.section_count }},\n  \"file_path\": \"{{ $('Build Outline Package').first().json.file_path }}\"\n}",
+        "options": { "timeout": 5000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3180, 300],
+      "id": "trigger-callback",
+      "name": "Trigger Callback",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const outline = $('Build Outline Package').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    outline_id: outline.outline_id,\n    title: outline.title,\n    format: outline.format,\n    structure: {\n      sections: outline.section_count,\n      total_words: outline.total_target_words\n    },\n    quality: { score: outline.quality_score },\n    file_path: outline.file_path,\n    storage: 'n8n_data_table + local_file',\n    duration_seconds: outline.duration_seconds\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3400, 400],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3620, 400],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "connections": {
+    "Outline Request": { "main": [[{ "node": "Validate & Configure", "type": "main", "index": 0 }]] },
+    "Validate & Configure": { "main": [[{ "node": "Has Research ID?", "type": "main", "index": 0 }]] },
+    "Has Research ID?": {
+      "main": [
+        [{ "node": "Get Research from Table", "type": "main", "index": 0 }],
+        [{ "node": "Generate Without Research", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Research from Table": { "main": [[{ "node": "Parse Research Data", "type": "main", "index": 0 }]] },
+    "Parse Research Data": { "main": [[{ "node": "Merge Paths", "type": "main", "index": 0 }]] },
+    "Generate Without Research": { "main": [[{ "node": "Merge Paths", "type": "main", "index": 0 }]] },
+    "Merge Paths": { "main": [[{ "node": "Generate Titles", "type": "main", "index": 0 }]] },
+    "Generate Titles": { "main": [[{ "node": "Select Best Title", "type": "main", "index": 0 }]] },
+    "Select Best Title": { "main": [[{ "node": "Generate Outline", "type": "main", "index": 0 }]] },
+    "Generate Outline": { "main": [[{ "node": "Build Outline Package", "type": "main", "index": 0 }]] },
+    "Build Outline Package": { "main": [[{ "node": "Save to Data Table", "type": "main", "index": 0 }, { "node": "Prepare File Binary", "type": "main", "index": 0 }]] },
+    "Save to Data Table": { "main": [[{ "node": "Has Callback?", "type": "main", "index": 0 }]] },
+    "Prepare File Binary": { "main": [[{ "node": "Write Outline File", "type": "main", "index": 0 }]] },
+    "Write Outline File": { "main": [[{ "node": "Has Callback?", "type": "main", "index": 0 }]] },
+    "Has Callback?": {
+      "main": [
+        [{ "node": "Trigger Callback", "type": "main", "index": 0 }],
+        [{ "node": "Build Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger Callback": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "W6-data-tables-local-files-v1",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "" },
+  "id": "yt7wXcqput75kwO7",
+  "tags": []
+}

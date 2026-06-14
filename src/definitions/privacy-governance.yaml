@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Privacy Governance
+
+name: privacy-governance
+description: Privacy policies, data handling standards, and governance operating docs
+artifact_type: documentation
+tool_type: governance
+language: markdown
+
+queries:
+  - query: '"privacy policy" "purpose" extension:md'
+    label: privacy-policy
+  - query: '"data handling policy" extension:md'
+    label: data-handling-policy
+  - query: '"data classification policy" extension:md'
+    label: data-classification-policy
+
+validation:
+  min_size: 200
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)privacy|data handling|data retention|classification|policy|personal data'
+
+metadata:
+  framework: governance
+  default_category: policy

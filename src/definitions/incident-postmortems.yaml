@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Incident Postmortems
+
+name: incident-postmortems
+description: Incident postmortems, root cause analyses, and outage retrospectives
+artifact_type: documentation
+tool_type: incident
+language: markdown
+
+queries:
+  - query: '"postmortem" "root cause" extension:md'
+    label: incident-postmortem
+  - query: '"incident review" "timeline" extension:md'
+    label: incident-review
+  - query: '"outage retrospective" extension:md'
+    label: outage-retrospective
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)incident|postmortem|root cause|timeline|impact|corrective action'
+
+metadata:
+  framework: incident-management
+  default_category: postmortem

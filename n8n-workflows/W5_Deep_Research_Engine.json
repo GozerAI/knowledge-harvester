@@ -1,0 +1,815 @@
+{
+  "name": "W5: Deep Research Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W5: Deep Research Engine\n\n## Purpose\nThe foundation workflow that powers all content production. Takes any topic and produces structured, reusable research.\n\n## Inputs (via Webhook)\n```json\n{\n  \"topic_id\": \"rec123\",      // Airtable record ID\n  \"topic\": \"productivity\",    // The topic text (backup if no ID)\n  \"depth\": \"light|medium|deep\",\n  \"focus_areas\": [\"time management\", \"tools\"],  // Optional\n  \"callback_workflow\": \"W6\"  // Optional: auto-trigger next\n}\n```\n\n## Outputs\n- Research saved to Airtable Research table\n- Structured JSON: summary, insights, quotes, statistics, sources\n- Optional webhook to downstream workflow\n\n## Depth Levels\n- **Light** (3 queries): Quick facts, common mistakes, tips\n- **Medium** (7 queries): + Expert opinions, case studies, stats\n- **Deep** (15 queries): + Academic research, industry reports, predictions\n\n## Setup Required\n1. Airtable: Create base with Topics & Research tables\n2. Perplexity API key (or Tavily as alternative)\n3. Update Base ID and Table IDs in Airtable nodes\n\n## Cost\n~$0.02-0.08 per run depending on depth",
+        "height": 580,
+        "width": 400
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        -100
+      ],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-engine",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        360,
+        300
+      ],
+      "id": "webhook-trigger",
+      "name": "Research Request",
+      "webhookId": "research-engine-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and normalize input\nconst input = $input.first().json.body || $input.first().json;\n\n// Extract parameters with defaults\nconst topicId = input.topic_id || null;\nconst topicText = input.topic || null;\nconst depth = input.depth || 'medium';\nconst focusAreas = input.focus_areas || [];\nconst callbackWorkflow = input.callback_workflow || null;\n\n// Validate we have something to research\nif (!topicId && !topicText) {\n  throw new Error('Must provide either topic_id or topic text');\n}\n\n// Validate depth\nconst validDepths = ['light', 'medium', 'deep'];\nif (!validDepths.includes(depth)) {\n  throw new Error(`Invalid depth: ${depth}. Must be: ${validDepths.join(', ')}`);\n}\n\n// Determine query count based on depth\nconst queryConfig = {\n  light: { count: 3, description: 'Quick overview' },\n  medium: { count: 7, description: 'Comprehensive research' },\n  deep: { count: 15, description: 'Exhaustive deep-dive' }\n};\n\nreturn [{\n  json: {\n    topic_id: topicId,\n    topic: topicText,\n    depth: depth,\n    query_count: queryConfig[depth].count,\n    depth_description: queryConfig[depth].description,\n    focus_areas: focusAreas,\n    callback_workflow: callbackWorkflow,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        300
+      ],
+      "id": "validate-input",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-topic-id",
+              "leftValue": "={{ $json.topic_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        760,
+        300
+      ],
+      "id": "check-topic-id",
+      "name": "Has Topic ID?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblTopics",
+          "mode": "id"
+        },
+        "id": "={{ $json.topic_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        200
+      ],
+      "id": "fetch-topic",
+      "name": "Fetch Topic from Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge Airtable data with original request\nconst original = $('Validate Input').first().json;\nconst airtableData = $input.first().json;\n\nreturn [{\n  json: {\n    ...original,\n    topic: airtableData.Topic || airtableData.fields?.Topic || original.topic,\n    topic_id: airtableData.id || original.topic_id,\n    // Preserve any additional metadata from Airtable\n    niche: airtableData.Niche || airtableData.fields?.Niche || null,\n    existing_score: airtableData.Score || airtableData.fields?.Score || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        200
+      ],
+      "id": "merge-airtable",
+      "name": "Merge Topic Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass through with topic text only\nconst original = $('Validate Input').first().json;\n\nreturn [{\n  json: {\n    ...original,\n    topic: original.topic,\n    topic_id: null  // Will be created after research\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        400
+      ],
+      "id": "use-text-only",
+      "name": "Use Topic Text"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1360,
+        300
+      ],
+      "id": "merge-paths",
+      "name": "Merge Paths"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate research queries based on depth and focus areas\nconst input = $input.first().json;\nconst topic = input.topic;\nconst depth = input.depth;\nconst focusAreas = input.focus_areas || [];\n\n// Base query templates by depth\nconst queryTemplates = {\n  light: [\n    `${topic} key facts and statistics 2024`,\n    `${topic} common mistakes to avoid`,\n    `${topic} quick actionable tips`\n  ],\n  medium: [\n    `${topic} key facts and statistics 2024`,\n    `${topic} common mistakes to avoid`,\n    `${topic} quick actionable tips`,\n    `${topic} expert opinions and insights`,\n    `${topic} real world case studies examples`,\n    `${topic} research studies data`,\n    `${topic} best practices comprehensive guide`\n  ],\n  deep: [\n    `${topic} key facts and statistics 2024`,\n    `${topic} common mistakes to avoid`,\n    `${topic} quick actionable tips`,\n    `${topic} expert opinions and insights`,\n    `${topic} real world case studies examples`,\n    `${topic} research studies data`,\n    `${topic} best practices comprehensive guide`,\n    `${topic} scientific research academic papers`,\n    `${topic} industry reports market analysis`,\n    `${topic} historical evolution timeline`,\n    `${topic} future predictions trends experts`,\n    `${topic} controversial debates different perspectives`,\n    `${topic} success stories and failures lessons learned`,\n    `${topic} tools software comparison reviews`,\n    `${topic} certification training programs courses`\n  ]\n};\n\n// Get queries for selected depth\nlet queries = queryTemplates[depth] || queryTemplates.medium;\n\n// Add focus area queries if provided\nif (focusAreas.length > 0) {\n  focusAreas.forEach(area => {\n    queries.push(`${topic} ${area} detailed guide`);\n  });\n}\n\n// Tag each query with its purpose for later synthesis\nconst taggedQueries = queries.map((query, index) => {\n  let category = 'general';\n  if (query.includes('statistics') || query.includes('data')) category = 'statistics';\n  else if (query.includes('expert') || query.includes('opinions')) category = 'expert';\n  else if (query.includes('case stud') || query.includes('example')) category = 'examples';\n  else if (query.includes('mistake') || query.includes('avoid')) category = 'warnings';\n  else if (query.includes('tips') || query.includes('actionable')) category = 'actionable';\n  else if (query.includes('research') || query.includes('academic')) category = 'academic';\n  else if (query.includes('prediction') || query.includes('future')) category = 'trends';\n  \n  return {\n    query: query,\n    index: index,\n    category: category\n  };\n});\n\n// Return each query as separate item for batch processing\nreturn taggedQueries.map(q => ({\n  json: {\n    ...input,\n    current_query: q.query,\n    query_index: q.index,\n    query_category: q.category,\n    total_queries: taggedQueries.length\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        300
+      ],
+      "id": "generate-queries",
+      "name": "Generate Research Queries"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"sonar\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a research assistant. Provide comprehensive, factual information from credible sources. Always include specific statistics, dates, and source attributions when available. Structure your response clearly.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.current_query }}\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"max_tokens\": 1500\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        300
+      ],
+      "id": "perplexity-search",
+      "name": "Perplexity Research",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_PERPLEXITY_CREDENTIAL",
+          "name": "Perplexity API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and structure Perplexity response\nconst input = $input.item.json;\nconst queryData = $('Generate Research Queries').item.json;\n\n// Parse Perplexity response\nlet content = '';\nlet citations = [];\n\nif (input.choices && input.choices[0]) {\n  content = input.choices[0].message?.content || '';\n}\n\nif (input.citations) {\n  citations = input.citations;\n}\n\nreturn [{\n  json: {\n    topic: queryData.topic,\n    topic_id: queryData.topic_id,\n    depth: queryData.depth,\n    query: queryData.current_query,\n    query_index: queryData.query_index,\n    query_category: queryData.query_category,\n    total_queries: queryData.total_queries,\n    response: content,\n    citations: citations,\n    callback_workflow: queryData.callback_workflow,\n    started_at: queryData.started_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1960,
+        300
+      ],
+      "id": "parse-response",
+      "name": "Parse Perplexity Response"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2160,
+        300
+      ],
+      "id": "collect-responses",
+      "name": "Collect All Responses"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a research synthesizer. You will receive multiple research responses about a topic. Your job is to:\n\n1. Extract and deduplicate key INSIGHTS (unique, actionable learnings)\n2. Extract notable QUOTES from experts (with attribution)\n3. Extract STATISTICS (specific numbers with sources and dates)\n4. Compile all SOURCES used\n5. Write a comprehensive SUMMARY (500 words max)\n\nOutput ONLY valid JSON in this exact format:\n{\n  \"summary\": \"Comprehensive overview of the topic...\",\n  \"insights\": [\n    { \"text\": \"Key insight here\", \"importance\": 8, \"category\": \"actionable\" }\n  ],\n  \"quotes\": [\n    { \"text\": \"The exact quote\", \"author\": \"Name\", \"role\": \"Title/Company\", \"source\": \"URL or publication\" }\n  ],\n  \"statistics\": [\n    { \"stat\": \"73% of workers...\", \"source\": \"Study/Report name\", \"year\": 2024 }\n  ],\n  \"sources\": [\n    { \"title\": \"Article title\", \"url\": \"https://...\", \"type\": \"article\" }\n  ],\n  \"key_themes\": [\"theme1\", \"theme2\", \"theme3\"]\n}\n\nImportance scale: 1-10 (10 = critical insight)\nCategories: actionable, warning, trend, fact, framework\nSource types: article, study, book, report, interview",
+              "role": "system"
+            },
+            {
+              "content": "=Topic: {{ $json.data[0].topic }}\nDepth: {{ $json.data[0].depth }}\n\nResearch Responses:\n{{ $json.data.map((r, i) => `\\n---QUERY ${i+1} (${r.query_category})---\\n${r.query}\\n\\nRESPONSE:\\n${r.response}\\n\\nCITATIONS: ${JSON.stringify(r.citations || [])}`).join('\\n\\n') }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "responseFormat": "json_object"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        2360,
+        300
+      ],
+      "id": "synthesize-research",
+      "name": "Synthesize Research",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and validate synthesized research\nconst input = $input.first().json;\nconst collectedData = $('Collect All Responses').first().json.data;\nconst metadata = collectedData[0]; // Get metadata from first item\n\n// Parse GPT response\nlet research = {};\ntry {\n  const content = input.message?.content || input.content || '{}';\n  research = typeof content === 'string' ? JSON.parse(content) : content;\n} catch (e) {\n  console.error('Failed to parse research JSON:', e);\n  research = {\n    summary: 'Failed to synthesize research',\n    insights: [],\n    quotes: [],\n    statistics: [],\n    sources: [],\n    key_themes: []\n  };\n}\n\n// Ensure all arrays exist\nresearch.insights = research.insights || [];\nresearch.quotes = research.quotes || [];\nresearch.statistics = research.statistics || [];\nresearch.sources = research.sources || [];\nresearch.key_themes = research.key_themes || [];\n\n// Calculate quality metrics\nconst qualityScore = Math.min(100, \n  (research.insights.length * 5) +\n  (research.quotes.length * 10) +\n  (research.statistics.length * 8) +\n  (research.sources.length * 3) +\n  (research.summary.length > 200 ? 20 : 10)\n);\n\n// Build final research package\nconst researchPackage = {\n  // Metadata\n  topic_id: metadata.topic_id,\n  topic: metadata.topic,\n  depth: metadata.depth,\n  callback_workflow: metadata.callback_workflow,\n  \n  // Research content\n  summary: research.summary,\n  insights: JSON.stringify(research.insights),\n  quotes: JSON.stringify(research.quotes),\n  statistics: JSON.stringify(research.statistics),\n  sources: JSON.stringify(research.sources),\n  key_themes: JSON.stringify(research.key_themes),\n  \n  // Metrics\n  quality_score: qualityScore,\n  query_count: metadata.total_queries,\n  insight_count: research.insights.length,\n  quote_count: research.quotes.length,\n  stat_count: research.statistics.length,\n  source_count: research.sources.length,\n  \n  // Timestamps\n  started_at: metadata.started_at,\n  completed_at: new Date().toISOString()\n};\n\nreturn [{ json: researchPackage }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        300
+      ],
+      "id": "build-package",
+      "name": "Build Research Package"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "id"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblResearch",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Topic": "={{ $json.topic_id ? [$json.topic_id] : null }}",
+            "Topic Text": "={{ $json.topic }}",
+            "Depth": "={{ $json.depth }}",
+            "Summary": "={{ $json.summary }}",
+            "Insights": "={{ $json.insights }}",
+            "Quotes": "={{ $json.quotes }}",
+            "Statistics": "={{ $json.statistics }}",
+            "Sources": "={{ $json.sources }}",
+            "Key Themes": "={{ $json.key_themes }}",
+            "Quality Score": "={{ $json.quality_score }}",
+            "Query Count": "={{ $json.query_count }}",
+            "Status": "Complete"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Topic",
+              "displayName": "Topic",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Topic Text",
+              "displayName": "Topic Text",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Depth",
+              "displayName": "Depth",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Summary",
+              "displayName": "Summary",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Insights",
+              "displayName": "Insights",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Quotes",
+              "displayName": "Quotes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statistics",
+              "displayName": "Statistics",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Sources",
+              "displayName": "Sources",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Key Themes",
+              "displayName": "Key Themes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Quality Score",
+              "displayName": "Quality Score",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Query Count",
+              "displayName": "Query Count",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [
+        2760,
+        300
+      ],
+      "id": "save-research",
+      "name": "Save to Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Airtable Personal Access Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-callback",
+              "leftValue": "={{ $('Build Research Package').first().json.callback_workflow }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        300
+      ],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Build Research Package').first().json.callback_workflow.toLowerCase().replace('w', 'w') }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic_id\": \"{{ $('Build Research Package').first().json.topic_id }}\",\n  \"topic\": \"{{ $('Build Research Package').first().json.topic }}\",\n  \"research_id\": \"{{ $('Save to Airtable').first().json.id }}\",\n  \"depth\": \"{{ $('Build Research Package').first().json.depth }}\",\n  \"quality_score\": {{ $('Build Research Package').first().json.quality_score }}\n}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3160,
+        200
+      ],
+      "id": "trigger-callback",
+      "name": "Trigger Next Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build final response\nconst researchPackage = $('Build Research Package').first().json;\nconst airtableRecord = $('Save to Airtable').first().json;\n\nconst response = {\n  success: true,\n  research_id: airtableRecord.id,\n  topic: researchPackage.topic,\n  topic_id: researchPackage.topic_id,\n  depth: researchPackage.depth,\n  quality_score: researchPackage.quality_score,\n  metrics: {\n    queries_executed: researchPackage.query_count,\n    insights_found: researchPackage.insight_count,\n    quotes_found: researchPackage.quote_count,\n    statistics_found: researchPackage.stat_count,\n    sources_cited: researchPackage.source_count\n  },\n  timing: {\n    started_at: researchPackage.started_at,\n    completed_at: researchPackage.completed_at,\n    duration_seconds: Math.round(\n      (new Date(researchPackage.completed_at) - new Date(researchPackage.started_at)) / 1000\n    )\n  },\n  callback_triggered: !!researchPackage.callback_workflow,\n  airtable_url: `https://airtable.com/appXXXXXXXXXXXXXX/tblResearch/${airtableRecord.id}`\n};\n\nreturn [{ json: response }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        300
+      ],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3560,
+        300
+      ],
+      "id": "respond",
+      "name": "Respond"
+    },
+    {
+      "parameters": {
+        "content": "## Query Generation\nBuilds research queries based on depth:\n- Light: 3 queries\n- Medium: 7 queries\n- Deep: 15 queries\n\nQueries are tagged by category for intelligent synthesis.",
+        "height": 180,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        480
+      ],
+      "id": "note-queries",
+      "name": "Query Note"
+    },
+    {
+      "parameters": {
+        "content": "## Perplexity Research\nBatches all queries through Perplexity API.\n\nAlternative: Replace with Tavily if preferred.\n\nCredential: HTTP Header Auth\n- Name: Authorization\n- Value: Bearer YOUR_API_KEY",
+        "height": 200,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        480
+      ],
+      "id": "note-perplexity",
+      "name": "Perplexity Note"
+    },
+    {
+      "parameters": {
+        "content": "## Synthesis\nGPT-4o-mini aggregates all research into structured JSON:\n- Summary\n- Insights (scored by importance)\n- Expert quotes\n- Statistics with sources\n- Key themes\n\nThis structured format feeds all downstream workflows.",
+        "height": 220,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2280,
+        480
+      ],
+      "id": "note-synthesis",
+      "name": "Synthesis Note"
+    },
+    {
+      "parameters": {
+        "content": "## Callback System\nOptional auto-trigger of next workflow.\n\nPass `callback_workflow: \"W6\"` to automatically trigger Outline Generator when research completes.\n\nCallback receives:\n- topic_id\n- research_id\n- quality_score",
+        "height": 200,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3080,
+        480
+      ],
+      "id": "note-callback",
+      "name": "Callback Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Research Request": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Has Topic ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Topic ID?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Topic from Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Use Topic Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Topic from Airtable": {
+      "main": [
+        [
+          {
+            "node": "Merge Topic Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Topic Data": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Use Topic Text": {
+      "main": [
+        [
+          {
+            "node": "Merge Paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Paths": {
+      "main": [
+        [
+          {
+            "node": "Generate Research Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Research Queries": {
+      "main": [
+        [
+          {
+            "node": "Perplexity Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Perplexity Research": {
+      "main": [
+        [
+          {
+            "node": "Parse Perplexity Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Perplexity Response": {
+      "main": [
+        [
+          {
+            "node": "Collect All Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect All Responses": {
+      "main": [
+        [
+          {
+            "node": "Synthesize Research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthesize Research": {
+      "main": [
+        [
+          {
+            "node": "Build Research Package",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Research Package": {
+      "main": [
+        [
+          {
+            "node": "Save to Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Airtable": {
+      "main": [
+        [
+          {
+            "node": "Has Callback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Callback?": {
+      "main": [
+        [
+          {
+            "node": "Trigger Next Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Next Workflow": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Response": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "W5-deep-research-engine-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  },
+  "id": "W5-DeepResearchEngine",
+  "tags": []
+}

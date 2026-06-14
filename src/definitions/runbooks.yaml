@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Operational Runbooks
+
+name: runbooks
+description: Operational runbooks, incident response procedures, and maintenance guides
+artifact_type: documentation
+tool_type: runbook
+language: markdown
+
+queries:
+  - query: '"runbook" "steps" "remediation" extension:md'
+    label: runbook-remediation
+  - query: 'filename:runbook extension:md'
+    label: runbook-file
+  - query: '"incident" "procedure" "escalation" extension:md'
+    label: incident-procedure
+
+validation:
+  min_size: 200
+  max_size: 200000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)runbook|procedure|steps|remediation|incident'
+
+metadata:
+  framework: runbook
+  default_category: runbook

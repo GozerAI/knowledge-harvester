@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — Pulumi Programs
+
+name: pulumi-programs
+description: Pulumi infrastructure programs for cloud provisioning and integration setup
+artifact_type: infra_config
+tool_type: pulumi
+language: typescript
+
+queries:
+  - query: '"@pulumi/" "new pulumi." extension:ts'
+    label: pulumi-typescript
+  - query: '"import * as pulumi" "new aws." extension:ts'
+    label: pulumi-aws
+  - query: '"import pulumi" "pulumi.export" extension:py'
+    label: pulumi-python
+
+validation:
+  min_size: 120
+  max_size: 400000
+  extensions: [ts, js, py]
+  required_patterns:
+    - 'pulumi'
+    - 'new\s+\w+\.|pulumi\.export'
+
+metadata:
+  framework: pulumi
+  default_category: cloud-infrastructure

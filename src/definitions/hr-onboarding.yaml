@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — HR Onboarding
+
+name: hr-onboarding
+description: Employee onboarding guides, role checklists, and internal enablement procedures
+artifact_type: documentation
+tool_type: onboarding
+language: markdown
+
+queries:
+  - query: '"employee onboarding" "first day" extension:md'
+    label: employee-onboarding
+  - query: '"onboarding checklist" "manager" extension:md'
+    label: manager-onboarding
+  - query: '"new hire" "access" "orientation" extension:md'
+    label: new-hire-orientation
+
+validation:
+  min_size: 160
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)onboarding|new hire|orientation|manager|checklist|access'
+
+metadata:
+  framework: people-ops
+  default_category: checklist

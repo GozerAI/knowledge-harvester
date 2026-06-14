@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Release Checklists
+
+name: release-checklists
+description: Release, launch, cutover, and go-live checklist documents
+artifact_type: documentation
+tool_type: checklist
+language: markdown
+
+queries:
+  - query: '"release checklist" "owner" extension:md'
+    label: release-checklist
+  - query: '"go-live checklist" "rollback" extension:md'
+    label: go-live-checklist
+  - query: '"cutover" "checklist" extension:md'
+    label: cutover-checklist
+
+validation:
+  min_size: 120
+  max_size: 200000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)checklist|go-live|release|cutover|rollback'
+
+metadata:
+  framework: delivery
+  default_category: checklist

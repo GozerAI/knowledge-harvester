@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — GraphQL Schemas
+
+name: graphql-schemas
+description: GraphQL schema definitions and type systems
+artifact_type: api_spec
+tool_type: graphql
+language: graphql
+
+queries:
+  - query: '"type Query" "type Mutation" extension:graphql'
+    label: graphql-full
+  - query: 'filename:schema.graphql "type Query"'
+    label: graphql-schema
+  - query: '"type Query" extension:gql'
+    label: graphql-gql
+
+validation:
+  min_size: 100
+  max_size: 500000
+  extensions: [graphql, gql]
+  required_patterns:
+    - 'type\s+Query|type\s+Mutation|schema\s*\{'
+
+metadata:
+  framework: graphql
+  default_category: graphql-api

@@ -1,0 +1,23 @@
+# Example YAML source definition for Knowledge Harvester.
+# Copy this file into src/definitions/<source-name>.yaml and then replace the placeholders.
+
+name: example-source
+description: Short description of the knowledge this source is expected to yield
+artifact_type: documentation
+tool_type: example-domain
+language: markdown
+
+queries:
+  - query: '"example phrase" extension:md'
+    label: example-query
+
+validation:
+  min_size: 150
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)example|keyword|phrase'
+
+metadata:
+  framework: example-domain
+  default_category: support-doc

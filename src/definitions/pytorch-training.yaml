@@ -1,0 +1,36 @@
+# Programmable Harvester Definition — PyTorch Training Configs
+# Harvests PyTorch model training scripts and configurations.
+
+name: pytorch-training
+description: PyTorch model training scripts, configs, and experiment setups
+artifact_type: ai_ml_asset
+tool_type: pytorch
+language: python
+
+queries:
+  - query: '"torch.nn" "optimizer" "loss" extension:py'
+    label: pytorch-training
+  - query: '"torch" "DataLoader" "train" extension:py'
+    label: pytorch-dataloader
+  - query: '"transformers" "TrainingArguments" extension:py'
+    label: hf-training
+
+validation:
+  min_size: 200
+  max_size: 500000
+  extensions: [py]
+  required_patterns:
+    - 'torch|transformers'
+    - 'train|fit|backward'
+
+extraction:
+  imports:
+    pattern: '(?:from|import)\s+(\S+)'
+  classes:
+    pattern: 'class\s+(\w+)'
+  functions:
+    pattern: '(?:async\s+)?def\s+(\w+)'
+
+metadata:
+  framework: pytorch
+  default_category: mlops-experiment

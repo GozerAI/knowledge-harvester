@@ -1,0 +1,28 @@
+# Programmable Harvester Definition — AWS Step Functions
+
+name: aws-step-functions
+description: AWS Step Functions state machines and orchestration definitions
+artifact_type: workflow
+tool_type: step-functions
+language: json
+
+queries:
+  - query: '"StartAt" "States" "Retry" extension:json'
+    label: step-functions-retry
+  - query: '"StartAt" "States" """Type"": ""Task""" extension:json'
+    label: step-functions-task
+  - query: '"StartAt" "States" """Type"": ""Choice""" extension:json'
+    label: step-functions-choice
+
+validation:
+  min_size: 120
+  max_size: 400000
+  extensions: [json, yaml, yml]
+  required_patterns:
+    - '"StartAt"|StartAt'
+    - '"States"|States'
+    - '"Type"\s*:\s*"(Task|Choice|Map|Parallel|Pass|Wait)"|Type:\s*(Task|Choice|Map|Parallel|Pass|Wait)'
+
+metadata:
+  framework: step-functions
+  default_category: cloud-orchestration

@@ -1,0 +1,28 @@
+# Programmable Harvester Definition — Flyte Workflows
+
+name: flyte-workflows
+description: Flyte task and workflow definitions for data and ML orchestration
+artifact_type: workflow
+tool_type: flyte
+language: python
+
+queries:
+  - query: '"from flytekit import task, workflow" extension:py'
+    label: flytekit-imports
+  - query: '"@workflow" "@task" "flytekit" extension:py'
+    label: flyte-decorators
+  - query: '"FlyteRemote" "@task" extension:py'
+    label: flyte-remote
+
+validation:
+  min_size: 120
+  max_size: 400000
+  extensions: [py]
+  required_patterns:
+    - 'flytekit|FlyteRemote'
+    - '@workflow|workflow\('
+    - '@task|task\('
+
+metadata:
+  framework: flyte
+  default_category: data-orchestration

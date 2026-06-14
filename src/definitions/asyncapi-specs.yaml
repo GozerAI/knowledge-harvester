@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — AsyncAPI Specifications
+
+name: asyncapi-specs
+description: AsyncAPI event-driven API specifications for streaming and messaging integrations
+artifact_type: api_spec
+tool_type: asyncapi
+language: yaml
+
+queries:
+  - query: 'filename:asyncapi.yaml "asyncapi:" "channels:"'
+    label: asyncapi-yaml
+  - query: '"asyncapi" "channels:" "publish:" extension:yaml'
+    label: asyncapi-publish
+  - query: '"asyncapi" "channels:" "subscribe:" extension:yml'
+    label: asyncapi-subscribe
+
+validation:
+  min_size: 150
+  max_size: 500000
+  extensions: [yaml, yml, json]
+  required_patterns:
+    - 'asyncapi'
+    - 'channels:|"channels"'
+
+metadata:
+  framework: asyncapi
+  default_category: event-api

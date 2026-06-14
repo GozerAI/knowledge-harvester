@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — Compliance Controls
+
+name: compliance-controls
+description: Control matrices, audit controls, and compliance evidence templates
+artifact_type: documentation
+tool_type: policy
+language: markdown
+
+queries:
+  - query: '"control objective" "owner" "evidence" extension:md'
+    label: control-objective
+  - query: '"compliance controls" "frequency" extension:md'
+    label: compliance-controls
+  - query: '"risk" "control" "evidence" extension:md'
+    label: risk-controls
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)control|evidence|owner'
+    - '(?i)risk|frequency|objective|review'
+
+metadata:
+  framework: compliance
+  default_category: policy

@@ -1,0 +1,14 @@
+node_modules/
+.git/
+.github/
+tests/
+logs/
+*.log
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.nyc_output/
+coverage/
+.vscode/
+.idea/

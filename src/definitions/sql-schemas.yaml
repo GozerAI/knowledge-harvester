@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — SQL Schemas
+
+name: sql-schemas
+description: SQL database schema definitions and migrations
+artifact_type: data_asset
+tool_type: sql-schema
+language: sql
+
+queries:
+  - query: '"CREATE TABLE" "PRIMARY KEY" "REFERENCES" extension:sql'
+    label: sql-relational
+  - query: 'filename:schema.sql "CREATE TABLE"'
+    label: sql-schema-file
+  - query: '"CREATE TABLE" "INDEX" "NOT NULL" extension:sql'
+    label: sql-indexed
+
+validation:
+  min_size: 100
+  max_size: 500000
+  extensions: [sql]
+  required_patterns:
+    - 'CREATE\s+TABLE'
+
+metadata:
+  framework: sql
+  default_category: relational-schema

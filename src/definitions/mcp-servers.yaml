@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — MCP Servers
+
+name: mcp-servers
+description: Model Context Protocol servers, tools, prompts, and resource handlers
+artifact_type: code_pattern
+tool_type: mcp
+language: typescript
+
+queries:
+  - query: '"@modelcontextprotocol/sdk" "Server" extension:ts'
+    label: mcp-sdk-typescript
+  - query: '"ListToolsRequestSchema" "Server" extension:ts'
+    label: mcp-tool-registry
+  - query: '"FastMCP" "tool" extension:py'
+    label: mcp-python-fastmcp
+
+validation:
+  min_size: 120
+  max_size: 400000
+  extensions: [ts, js, py]
+  required_patterns:
+    - 'modelcontextprotocol|FastMCP|MCP'
+    - 'tool|resource|prompt'
+
+metadata:
+  framework: mcp
+  default_category: integration-server

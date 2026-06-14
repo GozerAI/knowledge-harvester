@@ -1,0 +1,244 @@
+{
+  "name": "W5: Self-Correcting Research Engine v2",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W5: Self-Correcting Research Engine v2\n\n## USES N8N DATA TABLES + LOCAL FILES\n\nThis workflow:\n- Saves to **research_data** table\n- Writes .md file to **C:/dev/production_line/research/**\n\n## Output Files\n- research_{id}.md - Formatted research document\n\n## SETUP REQUIRED\nCreate Data Table 'research_data' with columns:\n- research_id, topic_id, topic, depth, summary\n- insights, statistics, sources (text/JSON)\n- quality_score (number), status (text)\n\n## Cost: Light ~$0.04 | Medium ~$0.08 | Deep ~$0.15",
+        "height": 400,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "research-engine-v2",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Research Request",
+      "webhookId": "research-engine-v2-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\n\nconst topicId = input.topic_id || `topic_${Date.now()}`;\nconst topicText = input.topic || null;\nconst depth = input.depth || 'medium';\nconst focusAreas = input.focus_areas || [];\nconst callbackWorkflow = input.callback_workflow || null;\n\nif (!topicText) {\n  throw new Error('Must provide topic text');\n}\n\nconst validDepths = ['light', 'medium', 'deep'];\nif (!validDepths.includes(depth)) {\n  throw new Error(`Invalid depth: ${depth}. Must be: ${validDepths.join(', ')}`);\n}\n\nconst queryConfig = {\n  light: { count: 3, useBoard: false },\n  medium: { count: 7, useBoard: false },\n  deep: { count: 12, useBoard: true }\n};\n\nconst config = queryConfig[depth];\n\nreturn [{\n  json: {\n    topic_id: topicId,\n    topic: topicText,\n    depth: depth,\n    query_count: config.count,\n    use_board_of_directors: config.useBoard,\n    focus_areas: focusAreas,\n    callback_workflow: callbackWorkflow,\n    session_id: `research_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst topic = input.topic;\nconst depth = input.depth;\nconst focusAreas = input.focus_areas || [];\n\nconst queryTemplates = {\n  core: [\n    { query: `${topic} comprehensive overview 2024`, category: 'overview' },\n    { query: `${topic} key statistics data research`, category: 'statistics' },\n    { query: `${topic} common problems challenges solutions`, category: 'problems' }\n  ],\n  extended: [\n    { query: `${topic} expert opinions industry leaders`, category: 'expert' },\n    { query: `${topic} case studies real examples success`, category: 'examples' },\n    { query: `${topic} best practices methodology framework`, category: 'framework' },\n    { query: `${topic} tools software platforms comparison`, category: 'tools' }\n  ],\n  deep: [\n    { query: `${topic} historical evolution timeline origin`, category: 'history' },\n    { query: `${topic} controversies criticism failures lessons`, category: 'skeptic' },\n    { query: `${topic} future predictions trends 2025 2030`, category: 'future' },\n    { query: `${topic} academic research scientific studies`, category: 'academic' },\n    { query: `${topic} market size growth investment funding`, category: 'market' }\n  ]\n};\n\nlet queries = [...queryTemplates.core];\nif (depth === 'medium' || depth === 'deep') {\n  queries = [...queries, ...queryTemplates.extended];\n}\nif (depth === 'deep') {\n  queries = [...queries, ...queryTemplates.deep];\n}\n\nfocusAreas.forEach(area => {\n  queries.push({ query: `${topic} ${area} detailed analysis`, category: 'focus' });\n});\n\nreturn queries.map((q, index) => ({\n  json: {\n    ...input,\n    current_query: q.query,\n    query_index: index,\n    query_category: q.category,\n    total_queries: queries.length\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 400],
+      "id": "generate-queries",
+      "name": "Generate Research Queries"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"sonar\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a research assistant. Provide comprehensive, factual information from credible sources. Include specific statistics with dates, expert names with credentials, and source URLs when available.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.current_query }}\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"max_tokens\": 2000,\n  \"return_citations\": true\n}",
+        "options": { "timeout": 45000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [980, 400],
+      "id": "perplexity-search",
+      "name": "Perplexity Research",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_PERPLEXITY_CREDENTIAL",
+          "name": "Perplexity API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst queryData = $('Generate Research Queries').item.json;\n\nlet content = '';\nlet citations = [];\n\nif (input.choices && input.choices[0]) {\n  content = input.choices[0].message?.content || '';\n}\nif (input.citations) {\n  citations = input.citations;\n}\n\nconst HIGH_AUTHORITY = ['.gov', '.edu', 'nature.com', 'sciencedirect.com', 'pubmed.ncbi', 'arxiv.org', 'hbr.org', 'mckinsey.com'];\nconst LOW_AUTHORITY = ['reddit.com', 'quora.com', 'medium.com', 'blogspot.com'];\n\nconst scoredCitations = citations.map(url => {\n  let authority = 1.0;\n  const urlLower = (url || '').toLowerCase();\n  if (HIGH_AUTHORITY.some(d => urlLower.includes(d))) authority = 2.0;\n  else if (LOW_AUTHORITY.some(d => urlLower.includes(d))) authority = 0.5;\n  return { url, authority_score: authority };\n});\n\nconst avgAuthority = scoredCitations.length > 0\n  ? scoredCitations.reduce((sum, c) => sum + c.authority_score, 0) / scoredCitations.length\n  : 1.0;\n\nreturn [{\n  json: {\n    topic: queryData.topic,\n    topic_id: queryData.topic_id,\n    depth: queryData.depth,\n    session_id: queryData.session_id,\n    query: queryData.current_query,\n    query_category: queryData.query_category,\n    response: content,\n    citations: scoredCitations,\n    average_authority: avgAuthority,\n    callback_workflow: queryData.callback_workflow,\n    started_at: queryData.started_at\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 400],
+      "id": "score-authority",
+      "name": "Score Source Authority"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1420, 400],
+      "id": "collect-responses",
+      "name": "Collect All Responses"
+    },
+    {
+      "parameters": {
+        "modelId": { "__rl": true, "value": "gpt-4o-mini", "mode": "list" },
+        "messages": {
+          "values": [
+            {
+              "content": "You are a research synthesizer. Analyze the research and extract structured data.\n\nOutput ONLY valid JSON:\n{\n  \"summary\": \"500 word comprehensive summary\",\n  \"insights\": [{\"text\": \"...\", \"importance\": 1-10, \"category\": \"actionable|warning|trend|fact\"}],\n  \"quotes\": [{\"text\": \"quote\", \"author\": \"name\", \"source\": \"url\"}],\n  \"statistics\": [{\"stat\": \"number\", \"source\": \"name\", \"year\": 2024}],\n  \"sources\": [{\"title\": \"...\", \"url\": \"...\", \"type\": \"article|study|report\"}],\n  \"key_themes\": [\"theme1\", \"theme2\"]\n}",
+              "role": "system"
+            },
+            {
+              "content": "=Topic: {{ $json.data[0].topic }}\n\nResearch:\n{{ $json.data.map(r => `[${r.query_category}]\\n${r.response}`).join('\\n---\\n') }}"
+            }
+          ]
+        },
+        "options": { "temperature": 0.2, "responseFormat": "json_object" }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [1640, 400],
+      "id": "synthesis",
+      "name": "Synthesize Research",
+      "credentials": { "openAiApi": { "id": "YOUR_OPENAI_CREDENTIAL", "name": "OpenAI" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "const collectedData = $('Collect All Responses').first().json.data;\nconst metadata = collectedData[0];\nconst synthesisRaw = $input.first().json.message?.content || '{}';\n\nlet synthesis = {};\ntry {\n  synthesis = typeof synthesisRaw === 'string' ? JSON.parse(synthesisRaw) : synthesisRaw;\n} catch (e) {\n  synthesis = { summary: synthesisRaw, insights: [], quotes: [], statistics: [], sources: [], key_themes: [] };\n}\n\nconst insightCount = synthesis.insights?.length || 0;\nconst quoteCount = synthesis.quotes?.length || 0;\nconst statCount = synthesis.statistics?.length || 0;\nconst sourceCount = synthesis.sources?.length || 0;\n\nconst qualityScore = Math.min(100,\n  (insightCount * 4) + (quoteCount * 8) + (statCount * 6) + (sourceCount * 2) + 20\n);\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(metadata.started_at);\n\nconst researchId = `research_${metadata.session_id}`;\n\n// Build Markdown document\nlet markdown = `# Research: ${metadata.topic}\\n\\n`;\nmarkdown += `**Research ID:** ${researchId}\\n`;\nmarkdown += `**Depth:** ${metadata.depth}\\n`;\nmarkdown += `**Quality Score:** ${qualityScore}/100\\n`;\nmarkdown += `**Generated:** ${completedAt}\\n\\n`;\nmarkdown += `---\\n\\n`;\n\nmarkdown += `## Summary\\n\\n${synthesis.summary || 'No summary available.'}\\n\\n`;\n\nif (synthesis.key_themes?.length) {\n  markdown += `## Key Themes\\n\\n`;\n  synthesis.key_themes.forEach(theme => {\n    markdown += `- ${theme}\\n`;\n  });\n  markdown += `\\n`;\n}\n\nif (synthesis.insights?.length) {\n  markdown += `## Key Insights\\n\\n`;\n  synthesis.insights.forEach((insight, i) => {\n    markdown += `### ${i + 1}. ${insight.category?.toUpperCase() || 'INSIGHT'}\\n`;\n    markdown += `${insight.text}\\n`;\n    markdown += `*Importance: ${insight.importance}/10*\\n\\n`;\n  });\n}\n\nif (synthesis.statistics?.length) {\n  markdown += `## Statistics\\n\\n`;\n  synthesis.statistics.forEach(stat => {\n    markdown += `- **${stat.stat}** - ${stat.source} (${stat.year})\\n`;\n  });\n  markdown += `\\n`;\n}\n\nif (synthesis.quotes?.length) {\n  markdown += `## Expert Quotes\\n\\n`;\n  synthesis.quotes.forEach(quote => {\n    markdown += `> \"${quote.text}\"\\n> — ${quote.author}\\n\\n`;\n  });\n}\n\nif (synthesis.sources?.length) {\n  markdown += `## Sources\\n\\n`;\n  synthesis.sources.forEach((source, i) => {\n    markdown += `${i + 1}. [${source.title}](${source.url}) - *${source.type}*\\n`;\n  });\n  markdown += `\\n`;\n}\n\nmarkdown += `---\\n\\n*Generated by Production Line W5 Research Engine*\\n`;\n\n// Create safe filename\nconst safeTitle = metadata.topic\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-|-$/g, '')\n  .substring(0, 40);\nconst timestamp = new Date().toISOString().split('T')[0];\nconst fileName = `${safeTitle}_${timestamp}.md`;\nconst filePath = `C:/dev/production_line/research/${fileName}`;\n\nconst researchPackage = {\n  research_id: researchId,\n  topic_id: metadata.topic_id,\n  topic: metadata.topic,\n  session_id: metadata.session_id,\n  depth: metadata.depth,\n  summary: synthesis.summary || '',\n  insights: JSON.stringify(synthesis.insights || []),\n  quotes: JSON.stringify(synthesis.quotes || []),\n  statistics: JSON.stringify(synthesis.statistics || []),\n  sources: JSON.stringify(synthesis.sources || []),\n  key_themes: JSON.stringify(synthesis.key_themes || []),\n  quality_score: qualityScore,\n  insight_count: insightCount,\n  quote_count: quoteCount,\n  stat_count: statCount,\n  source_count: sourceCount,\n  file_path: filePath,\n  markdown_content: markdown,\n  callback_workflow: metadata.callback_workflow,\n  started_at: metadata.started_at,\n  completed_at: completedAt,\n  duration_seconds: Math.round(durationMs / 1000),\n  status: 'complete'\n};\n\nreturn [{ json: researchPackage }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 400],
+      "id": "build-package",
+      "name": "Build Research Package"
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "tableId": { "__rl": true, "value": "research_data", "mode": "list" },
+        "columns": { "mappingMode": "autoMapInputData", "value": {} },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.n8nTables",
+      "typeVersion": 1,
+      "position": [2080, 400],
+      "id": "save-to-data-table",
+      "name": "Save to Data Table"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Build Research Package').first().json;\nconst content = data.markdown_content;\n\n// Convert string to binary buffer for file writing\nconst binaryData = Buffer.from(content, 'utf-8');\n\nreturn [{\n  json: {\n    file_path: data.file_path\n  },\n  binary: {\n    data: {\n      data: binaryData.toString('base64'),\n      mimeType: 'text/markdown',\n      fileName: data.file_path.split('/').pop()\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2080, 280],
+      "id": "prepare-file-binary",
+      "name": "Prepare File Binary"
+    },
+    {
+      "parameters": {
+        "fileName": "={{ $json.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [2300, 280],
+      "id": "write-research-file",
+      "name": "Write Research File"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "id": "has-callback", "leftValue": "={{ $('Build Research Package').first().json.callback_workflow }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2520, 400],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Build Research Package').first().json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"research_id\": \"{{ $('Build Research Package').first().json.research_id }}\",\n  \"topic_id\": \"{{ $('Build Research Package').first().json.topic_id }}\",\n  \"topic\": \"{{ $('Build Research Package').first().json.topic }}\",\n  \"depth\": \"{{ $('Build Research Package').first().json.depth }}\",\n  \"quality_score\": {{ $('Build Research Package').first().json.quality_score }},\n  \"file_path\": \"{{ $('Build Research Package').first().json.file_path }}\"\n}",
+        "options": { "timeout": 5000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2740, 300],
+      "id": "trigger-callback",
+      "name": "Trigger Next Workflow",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const research = $('Build Research Package').first().json;\n\nreturn [{\n  json: {\n    success: true,\n    research_id: research.research_id,\n    topic: research.topic,\n    topic_id: research.topic_id,\n    depth: research.depth,\n    quality: {\n      score: research.quality_score,\n      grade: research.quality_score >= 80 ? 'A' : research.quality_score >= 60 ? 'B' : 'C'\n    },\n    metrics: {\n      insights: research.insight_count,\n      quotes: research.quote_count,\n      statistics: research.stat_count,\n      sources: research.source_count\n    },\n    file_path: research.file_path,\n    storage: 'n8n_data_table + local_file',\n    duration_seconds: research.duration_seconds,\n    callback_triggered: !!research.callback_workflow\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2960, 400],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3180, 400],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "connections": {
+    "Research Request": { "main": [[{ "node": "Validate & Configure", "type": "main", "index": 0 }]] },
+    "Validate & Configure": { "main": [[{ "node": "Generate Research Queries", "type": "main", "index": 0 }]] },
+    "Generate Research Queries": { "main": [[{ "node": "Perplexity Research", "type": "main", "index": 0 }]] },
+    "Perplexity Research": { "main": [[{ "node": "Score Source Authority", "type": "main", "index": 0 }]] },
+    "Score Source Authority": { "main": [[{ "node": "Collect All Responses", "type": "main", "index": 0 }]] },
+    "Collect All Responses": { "main": [[{ "node": "Synthesize Research", "type": "main", "index": 0 }]] },
+    "Synthesize Research": { "main": [[{ "node": "Build Research Package", "type": "main", "index": 0 }]] },
+    "Build Research Package": { "main": [[{ "node": "Save to Data Table", "type": "main", "index": 0 }, { "node": "Prepare File Binary", "type": "main", "index": 0 }]] },
+    "Save to Data Table": { "main": [[{ "node": "Has Callback?", "type": "main", "index": 0 }]] },
+    "Prepare File Binary": { "main": [[{ "node": "Write Research File", "type": "main", "index": 0 }]] },
+    "Write Research File": { "main": [[{ "node": "Has Callback?", "type": "main", "index": 0 }]] },
+    "Has Callback?": {
+      "main": [
+        [{ "node": "Trigger Next Workflow", "type": "main", "index": 0 }],
+        [{ "node": "Build Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger Next Workflow": { "main": [[{ "node": "Build Response", "type": "main", "index": 0 }]] },
+    "Build Response": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "W5-data-tables-local-files-v1",
+  "meta": { "templateCredsSetupCompleted": false, "instanceId": "" },
+  "id": "hyeIhKfoYi2IxZj4",
+  "tags": []
+}

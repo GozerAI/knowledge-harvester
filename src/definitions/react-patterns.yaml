@@ -1,0 +1,35 @@
+# Programmable Harvester Definition — React Patterns
+# Harvests React component patterns, hooks, and architectural examples.
+
+name: react-patterns
+description: React component patterns, custom hooks, and state management
+artifact_type: code_pattern
+tool_type: javascript
+language: typescript
+
+queries:
+  - query: '"useEffect" "useState" "export" extension:tsx'
+    label: react-hooks
+  - query: '"createContext" "useContext" "Provider" extension:tsx'
+    label: react-context
+  - query: '"React.memo" "useMemo" "useCallback" extension:tsx'
+    label: react-performance
+
+validation:
+  min_size: 100
+  max_size: 500000
+  extensions: [tsx, ts, jsx, js]
+  required_patterns:
+    - 'React|react|useState|useEffect'
+
+extraction:
+  imports:
+    pattern: "from\\s+['\"]([^'\"]+)['\"]"
+  classes:
+    pattern: 'class\s+(\w+)'
+  functions:
+    pattern: '(?:export\s+)?(?:const|function)\s+(\w+)'
+
+metadata:
+  framework: react
+  default_category: design-pattern

@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — AWS CloudFormation
+
+name: cloudformation-templates
+description: AWS CloudFormation and SAM templates for cloud infrastructure and integrations
+artifact_type: infra_config
+tool_type: cloudformation
+language: yaml
+
+queries:
+  - query: 'filename:template.yaml "AWSTemplateFormatVersion" "Resources:"'
+    label: cloudformation-template
+  - query: '"AWSTemplateFormatVersion" "Resources:" "Type: AWS::" extension:yaml'
+    label: cloudformation-resources
+  - query: '"Transform: AWS::Serverless-2016-10-31" "Resources:" extension:yml'
+    label: aws-sam
+
+validation:
+  min_size: 120
+  max_size: 400000
+  extensions: [yaml, yml, json]
+  required_patterns:
+    - 'AWSTemplateFormatVersion|Resources:|"Resources"'
+    - 'Type:\s*AWS::|"Type"\s*:\s*"AWS::'
+
+metadata:
+  framework: cloudformation
+  default_category: cloud-infrastructure

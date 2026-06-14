@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Support Playbooks
+
+name: support-playbooks
+description: Support troubleshooting guides, escalation playbooks, and customer issue procedures
+artifact_type: documentation
+tool_type: support
+language: markdown
+
+queries:
+  - query: '"troubleshooting" "escalation" extension:md'
+    label: troubleshooting-escalation
+  - query: '"support playbook" "customer impact" extension:md'
+    label: support-playbook
+  - query: '"known issues" "resolution" extension:md'
+    label: support-known-issues
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)troubleshooting|support|incident|escalation|known issues'
+
+metadata:
+  framework: support
+  default_category: support-doc

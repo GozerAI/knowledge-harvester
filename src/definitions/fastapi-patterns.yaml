@@ -1,0 +1,38 @@
+# Programmable Harvester Definition — FastAPI Patterns
+# Drop YAML files in src/definitions/ to add new sources without code.
+
+name: fastapi-patterns
+description: FastAPI application patterns, middleware, and architectural examples
+artifact_type: code_pattern
+tool_type: python
+language: python
+
+queries:
+  - query: '"FastAPI" "middleware" extension:py'
+    label: fastapi-middleware
+  - query: '"FastAPI" "Depends" "APIRouter" extension:py'
+    label: fastapi-router
+  - query: '"FastAPI" "BaseModel" "async def" extension:py'
+    label: fastapi-async-endpoints
+
+validation:
+  min_size: 100
+  max_size: 500000
+  extensions: [py]
+  required_patterns:
+    - 'FastAPI|fastapi'
+    - 'def |async def '
+
+extraction:
+  imports:
+    pattern: '(?:from|import)\s+(\S+)'
+  classes:
+    pattern: 'class\s+(\w+)'
+  functions:
+    pattern: '(?:async\s+)?def\s+(\w+)'
+  decorators:
+    pattern: '@(\w+(?:\.\w+)*)'
+
+metadata:
+  framework: fastapi
+  default_category: api-pattern

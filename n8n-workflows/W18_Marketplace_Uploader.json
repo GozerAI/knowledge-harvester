@@ -1,0 +1,384 @@
+{
+  "name": "W18: Marketplace Uploader",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "# W18: Marketplace Uploader\n\n## Purpose\nDistributes finished products to multiple marketplaces:\n\n### Supported Platforms\n- **Gumroad**: Digital products, ebooks, courses\n- **Etsy**: Digital downloads, printables\n- **Amazon KDP**: Kindle ebooks, paperbacks\n- **Shopify**: Own store integration\n- **Teachable/Thinkific**: Courses\n- **Payhip**: Digital products\n- **Ko-fi**: Creator economy\n- **LemonSqueezy**: Software, digital\n\n## Features\n- Multi-platform simultaneous upload\n- Platform-specific formatting\n- Pricing optimization\n- SEO metadata per platform\n- Automatic product variations\n- Launch scheduling\n- Affiliate setup\n\n## Process\n1. Fetch asset + marketing package\n2. Prepare platform-specific listings\n3. Upload files to each platform\n4. Set pricing, categories, tags\n5. Configure upsells/cross-sells\n6. Schedule or publish\n7. Record product URLs\n\n## Cost: API calls only (~$0)",
+        "height": 620,
+        "width": 420
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-140, -100],
+      "id": "readme-note",
+      "name": "README"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "marketplace-upload",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [340, 400],
+      "id": "webhook-trigger",
+      "name": "Marketplace Upload Request",
+      "webhookId": "marketplace-upload-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json.body || $input.first().json;\n\n// Asset to upload\nconst assetId = input.asset_id;\nif (!assetId) throw new Error('Must provide asset_id');\n\n// Optional: teaser package for marketing copy\nconst teaserPackageId = input.teaser_package_id || null;\n\n// Platforms to upload to\nconst platforms = input.platforms || ['gumroad'];\nconst validPlatforms = ['gumroad', 'etsy', 'amazon_kdp', 'shopify', 'payhip', 'lemonsqueezy', 'kofi', 'teachable', 'thinkific'];\nconst selectedPlatforms = platforms.filter(p => validPlatforms.includes(p));\n\n// Pricing configuration\nconst pricing = {\n  base_price: input.pricing?.base_price || 9.99,\n  currency: input.pricing?.currency || 'USD',\n  \n  // Platform-specific pricing adjustments\n  platform_adjustments: input.pricing?.platform_adjustments || {},\n  \n  // Promotional pricing\n  launch_discount: input.pricing?.launch_discount || null, // e.g., { percent: 20, days: 7 }\n  \n  // Pay what you want\n  pwyw_enabled: input.pricing?.pwyw_enabled || false,\n  pwyw_minimum: input.pricing?.pwyw_minimum || 0,\n  pwyw_suggested: input.pricing?.pwyw_suggested || null,\n  \n  // Tiers (for courses/bundles)\n  tiers: input.pricing?.tiers || null\n};\n\n// Product configuration\nconst product = {\n  type: input.product?.type || 'ebook', // ebook, course, template, printable, software\n  \n  // Categorization\n  category: input.product?.category || 'Business',\n  subcategory: input.product?.subcategory || 'Productivity',\n  tags: input.product?.tags || [],\n  \n  // Visibility\n  visibility: input.product?.visibility || 'public', // public, unlisted, private\n  \n  // Scheduling\n  publish_mode: input.product?.publish_mode || 'immediate', // immediate, scheduled, draft\n  scheduled_date: input.product?.scheduled_date || null,\n  \n  // Adult content flag\n  is_adult: input.product?.is_adult || false,\n  \n  // Refund policy\n  refund_policy: input.product?.refund_policy || '30_days' // no_refunds, 7_days, 30_days\n};\n\n// Content delivery options\nconst delivery = {\n  // Which file formats to include\n  include_formats: input.delivery?.include_formats || ['pdf', 'epub'],\n  \n  // Bonus content\n  include_bonuses: input.delivery?.include_bonuses || true,\n  bonus_asset_ids: input.delivery?.bonus_asset_ids || [],\n  \n  // Drip content (for courses)\n  drip_enabled: input.delivery?.drip_enabled || false,\n  drip_schedule: input.delivery?.drip_schedule || null\n};\n\n// Marketing/SEO configuration\nconst marketing = {\n  // Override auto-generated copy\n  custom_title: input.marketing?.custom_title || null,\n  custom_description: input.marketing?.custom_description || null,\n  custom_short_description: input.marketing?.custom_short_description || null,\n  \n  // SEO\n  seo_keywords: input.marketing?.seo_keywords || [],\n  \n  // Social proof\n  testimonials: input.marketing?.testimonials || [],\n  \n  // Upsells\n  upsell_product_ids: input.marketing?.upsell_product_ids || [],\n  cross_sell_product_ids: input.marketing?.cross_sell_product_ids || []\n};\n\n// Affiliate program settings\nconst affiliates = {\n  enabled: input.affiliates?.enabled || false,\n  commission_percent: input.affiliates?.commission_percent || 30,\n  cookie_days: input.affiliates?.cookie_days || 30\n};\n\n// Email/automation triggers\nconst automations = {\n  // Post-purchase email sequence\n  email_sequence_id: input.automations?.email_sequence_id || null,\n  \n  // Webhook on purchase\n  purchase_webhook_url: input.automations?.purchase_webhook_url || null,\n  \n  // Add to email list\n  add_to_list: input.automations?.add_to_list || null\n};\n\nreturn [{\n  json: {\n    asset_id: assetId,\n    teaser_package_id: teaserPackageId,\n    platforms: selectedPlatforms,\n    pricing: pricing,\n    product: product,\n    delivery: delivery,\n    marketing: marketing,\n    affiliates: affiliates,\n    automations: automations,\n    callback_workflow: input.callback_workflow || null,\n    session_id: `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,\n    started_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 400],
+      "id": "validate-input",
+      "name": "Validate & Configure"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {"__rl": true, "value": "appXXXXXXXXXXXXXX", "mode": "id"},
+        "table": {"__rl": true, "value": "tblAssets", "mode": "id"},
+        "id": "={{ $json.asset_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [760, 400],
+      "id": "fetch-asset",
+      "name": "Fetch Asset",
+      "credentials": {"airtableTokenApi": {"id": "YOUR_AIRTABLE_CREDENTIAL", "name": "Airtable"}}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "has-teaser", "leftValue": "={{ $('Validate & Configure').first().json.teaser_package_id }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [980, 400],
+      "id": "check-teaser",
+      "name": "Has Teaser Package?"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "base": {"__rl": true, "value": "appXXXXXXXXXXXXXX", "mode": "id"},
+        "table": {"__rl": true, "value": "tblMarketing", "mode": "id"},
+        "id": "={{ $('Validate & Configure').first().json.teaser_package_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [1200, 300],
+      "id": "fetch-teaser",
+      "name": "Fetch Teaser Package",
+      "credentials": {"airtableTokenApi": {"id": "YOUR_AIRTABLE_CREDENTIAL", "name": "Airtable"}}
+    },
+    {
+      "parameters": {"mode": "combine", "combineBy": "combineAll", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1420, 400],
+      "id": "merge-data",
+      "name": "Merge Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build platform-specific product listings\nconst config = $('Validate & Configure').first().json;\nconst asset = $('Fetch Asset').first().json;\n\nlet teaserPackage = null;\ntry {\n  teaserPackage = $('Fetch Teaser Package').first()?.json || null;\n} catch(e) {}\n\n// Parse asset data\nconst title = asset.Title || 'Untitled Product';\nlet fileUrls = [];\ntry { fileUrls = JSON.parse(asset['File URLs'] || '[]'); } catch(e) {}\n\nconst totalWords = asset['Total Words'] || 0;\nconst estimatedPages = asset['Estimated Pages'] || Math.ceil(totalWords / 250);\n\n// Parse teaser package for marketing copy\nlet landingPage = {};\nlet emailSubjects = [];\nif (teaserPackage) {\n  try { landingPage = JSON.parse(teaserPackage['Landing Page'] || '{}'); } catch(e) {}\n  try { emailSubjects = JSON.parse(teaserPackage['Email Subjects'] || '[]'); } catch(e) {}\n}\n\n// Helper: Build product description\nconst buildDescription = (platform, maxLength = null) => {\n  // Use custom or auto-generate from landing page\n  let description = config.marketing.custom_description;\n  \n  if (!description && landingPage.hero) {\n    description = `${landingPage.hero.headlines?.[0] || title}\\n\\n`;\n    description += `${landingPage.hero.subheadline || ''}\\n\\n`;\n    \n    if (landingPage.problem?.pain_statements) {\n      description += `Are you struggling with:\\n`;\n      landingPage.problem.pain_statements.slice(0, 3).forEach(p => {\n        description += `• ${p}\\n`;\n      });\n      description += '\\n';\n    }\n    \n    if (landingPage.solution?.transformation) {\n      description += `${landingPage.solution.transformation}\\n\\n`;\n    }\n    \n    if (landingPage.solution?.chapter_previews) {\n      description += `What you'll learn:\\n`;\n      landingPage.solution.chapter_previews.slice(0, 5).forEach(ch => {\n        description += `✓ ${ch.title}\\n`;\n      });\n    }\n  }\n  \n  if (!description) {\n    description = `${title} - A comprehensive guide with ${estimatedPages} pages of actionable content.`;\n  }\n  \n  // Platform-specific adjustments\n  if (platform === 'etsy' && maxLength) {\n    description = description.substring(0, maxLength);\n  }\n  \n  return description;\n};\n\n// Helper: Build short description\nconst buildShortDescription = () => {\n  if (config.marketing.custom_short_description) {\n    return config.marketing.custom_short_description;\n  }\n  if (landingPage.hero?.subheadline) {\n    return landingPage.hero.subheadline;\n  }\n  return `${estimatedPages}-page guide to mastering ${config.product.category.toLowerCase()}`;\n};\n\n// Helper: Get price for platform\nconst getPlatformPrice = (platform) => {\n  const basePrice = config.pricing.base_price;\n  const adjustment = config.pricing.platform_adjustments[platform] || 0;\n  return Math.round((basePrice + adjustment) * 100) / 100;\n};\n\n// Helper: Get files for delivery\nconst getDeliveryFiles = () => {\n  return fileUrls.filter(f => \n    config.delivery.include_formats.includes(f.format)\n  );\n};\n\n// Build listing for each platform\nconst listings = config.platforms.map(platform => {\n  const listing = {\n    platform: platform,\n    status: 'pending',\n    \n    // Basic info\n    title: config.marketing.custom_title || title,\n    short_description: buildShortDescription(),\n    description: buildDescription(platform),\n    \n    // Pricing\n    price: getPlatformPrice(platform),\n    currency: config.pricing.currency,\n    \n    // Files\n    files: getDeliveryFiles(),\n    \n    // Categorization\n    category: config.product.category,\n    subcategory: config.product.subcategory,\n    tags: config.product.tags,\n    \n    // Settings\n    visibility: config.product.visibility,\n    publish_mode: config.product.publish_mode\n  };\n  \n  // Platform-specific fields\n  switch(platform) {\n    case 'gumroad':\n      listing.gumroad_specific = {\n        pwyw: config.pricing.pwyw_enabled,\n        minimum_price: config.pricing.pwyw_minimum,\n        suggested_price: config.pricing.pwyw_suggested || config.pricing.base_price,\n        is_physical: false,\n        require_shipping: false,\n        generate_license: false,\n        max_purchase_count: null,\n        affiliate_commission: config.affiliates.enabled ? config.affiliates.commission_percent : null\n      };\n      break;\n      \n    case 'etsy':\n      listing.etsy_specific = {\n        is_digital: true,\n        who_made: 'i_did',\n        when_made: 'made_to_order',\n        taxonomy_id: null, // Will be set based on category\n        shipping_profile_id: null, // N/A for digital\n        processing_min: 1,\n        processing_max: 1,\n        // Etsy requires 5-13 tags\n        tags: (config.product.tags || []).slice(0, 13),\n        materials: ['Digital Download', 'PDF', 'Ebook'],\n        // Etsy SEO\n        title: (config.marketing.custom_title || title).substring(0, 140)\n      };\n      break;\n      \n    case 'amazon_kdp':\n      listing.kdp_specific = {\n        language: 'en',\n        is_public_domain: false,\n        has_adult_content: config.product.is_adult,\n        // KDP categories (BISAC codes)\n        bisac_primary: 'BUS000000', // General Business\n        bisac_secondary: null,\n        // Search keywords (up to 7)\n        keywords: (config.marketing.seo_keywords || config.product.tags || []).slice(0, 7),\n        // DRM\n        drm_enabled: true,\n        // Pricing\n        royalty_plan: config.pricing.base_price >= 2.99 ? '70' : '35',\n        // Territories\n        territories: 'worldwide',\n        // Series info\n        series_title: null,\n        series_number: null\n      };\n      break;\n      \n    case 'shopify':\n      listing.shopify_specific = {\n        product_type: 'Digital Download',\n        vendor: 'Self',\n        requires_shipping: false,\n        taxable: true,\n        inventory_management: null,\n        inventory_policy: 'continue',\n        fulfillment_service: 'manual',\n        // Metafields for digital delivery\n        metafields: {\n          digital_download: true,\n          file_count: getDeliveryFiles().length\n        },\n        // Variants (if tiers)\n        variants: config.pricing.tiers || [{\n          title: 'Default',\n          price: getPlatformPrice('shopify'),\n          sku: `${title.replace(/\\s+/g, '-').toLowerCase()}-digital`\n        }]\n      };\n      break;\n      \n    case 'payhip':\n      listing.payhip_specific = {\n        product_type: 'digital',\n        file_types: config.delivery.include_formats,\n        affiliate_enabled: config.affiliates.enabled,\n        affiliate_commission: config.affiliates.commission_percent,\n        limit_downloads: false,\n        pdf_stamping: true,\n        pay_what_you_want: config.pricing.pwyw_enabled\n      };\n      break;\n      \n    case 'lemonsqueezy':\n      listing.lemonsqueezy_specific = {\n        product_type: 'digital_download',\n        status: config.product.publish_mode === 'immediate' ? 'published' : 'draft',\n        // License\n        license_enabled: false,\n        // Variants\n        has_variants: config.pricing.tiers ? true : false,\n        // Checkout\n        buy_now_url: true,\n        // Integrations\n        email_provider_integration: config.automations.add_to_list ? true : false\n      };\n      break;\n      \n    case 'kofi':\n      listing.kofi_specific = {\n        shop_item: true,\n        is_nsfw: config.product.is_adult,\n        // Ko-fi specific\n        gold_exclusive: false,\n        // Digital delivery\n        digital_files: getDeliveryFiles().map(f => f.url)\n      };\n      break;\n      \n    case 'teachable':\n    case 'thinkific':\n      listing.course_specific = {\n        course_type: 'self_paced',\n        drip_enabled: config.delivery.drip_enabled,\n        drip_schedule: config.delivery.drip_schedule,\n        // Curriculum from chapters\n        sections: [], // Would be built from content\n        // Certificates\n        certificate_enabled: true,\n        // Pricing\n        payment_type: 'one_time', // or 'subscription', 'payment_plan'\n        enrollment_cap: null\n      };\n      break;\n  }\n  \n  return listing;\n});\n\nreturn [{\n  json: {\n    ...config,\n    asset: {\n      id: asset.id,\n      title: title,\n      total_words: totalWords,\n      estimated_pages: estimatedPages,\n      file_urls: fileUrls\n    },\n    listings: listings\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1640, 400],
+      "id": "build-listings",
+      "name": "Build Platform Listings"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split listings for parallel platform uploads\nconst data = $input.first().json;\nconst listings = data.listings || [];\n\nreturn listings.map(listing => ({\n  json: {\n    ...listing,\n    asset: data.asset,\n    pricing: data.pricing,\n    automations: data.automations,\n    session_id: data.session_id\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1860, 400],
+      "id": "split-platforms",
+      "name": "Split Platforms"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2},
+          "conditions": [
+            {"id": "gumroad", "leftValue": "={{ $json.platform }}", "rightValue": "gumroad", "operator": {"type": "string", "operation": "equals"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [2080, 400],
+      "id": "route-platform",
+      "name": "Route by Platform",
+      "parameters2": {
+        "rules": {
+          "rules": [
+            {"outputKey": "gumroad", "conditions": {"conditions": [{"leftValue": "={{ $json.platform }}", "rightValue": "gumroad", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "etsy", "conditions": {"conditions": [{"leftValue": "={{ $json.platform }}", "rightValue": "etsy", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "amazon", "conditions": {"conditions": [{"leftValue": "={{ $json.platform }}", "rightValue": "amazon_kdp", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "shopify", "conditions": {"conditions": [{"leftValue": "={{ $json.platform }}", "rightValue": "shopify", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "other", "conditions": {"conditions": [{"leftValue": "={{ $json.platform }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}]}}
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "content": "## GUMROAD UPLOAD\n\nGumroad API integration:\n1. Create product\n2. Upload files\n3. Set pricing (PWYW optional)\n4. Configure affiliates\n5. Publish\n\nAPI: api.gumroad.com/v2",
+        "height": 200,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [2280, 140],
+      "id": "gumroad-note",
+      "name": "Gumroad Note"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.gumroad.com/v2/products",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "gumroadApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"name\": \"{{ $json.title }}\",\n  \"description\": \"{{ $json.description.replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\",\n  \"price\": {{ Math.round($json.price * 100) }},\n  \"currency\": \"{{ $json.currency.toLowerCase() }}\",\n  \"customizable_price\": {{ $json.gumroad_specific?.pwyw || false }},\n  \"suggested_price\": {{ $json.gumroad_specific?.suggested_price ? Math.round($json.gumroad_specific.suggested_price * 100) : 'null' }},\n  \"published\": {{ $json.publish_mode === 'immediate' }},\n  \"require_shipping\": false,\n  \"is_physical\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2300, 300],
+      "id": "gumroad-create",
+      "name": "Gumroad: Create Product",
+      "credentials": {"gumroadApi": {"id": "YOUR_GUMROAD_CREDENTIAL", "name": "Gumroad"}},
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Gumroad response\nconst inputData = $('Split Platforms').item.json;\nconst response = $input.item.json;\n\nlet result = {\n  platform: 'gumroad',\n  status: 'failed',\n  product_id: null,\n  product_url: null,\n  edit_url: null,\n  error: null\n};\n\nif (response.success && response.product) {\n  result = {\n    platform: 'gumroad',\n    status: 'success',\n    product_id: response.product.id,\n    product_url: response.product.short_url,\n    edit_url: `https://app.gumroad.com/products/${response.product.id}/edit`,\n    price: response.product.price / 100,\n    currency: response.product.currency,\n    published: response.product.published,\n    error: null\n  };\n} else {\n  result.error = response.message || 'Unknown error';\n}\n\nreturn [{ json: { ...inputData, result: result } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 300],
+      "id": "gumroad-process",
+      "name": "Process Gumroad"
+    },
+    {
+      "parameters": {
+        "content": "## ETSY UPLOAD\n\nEtsy API integration:\n1. Create draft listing\n2. Upload images\n3. Add digital files\n4. Set categories/tags\n5. Publish\n\nAPI: openapi.etsy.com/v3",
+        "height": 200,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [2280, 380],
+      "id": "etsy-note",
+      "name": "Etsy Note"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openapi.etsy.com/v3/application/shops/{{ $credentials.shopId }}/listings",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "etsyOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"{{ $json.etsy_specific?.title || $json.title }}\",\n  \"description\": \"{{ $json.description.replace(/\"/g, '\\\\\"').replace(/\\n/g, '\\\\n') }}\",\n  \"price\": {{ $json.price }},\n  \"quantity\": 999,\n  \"who_made\": \"i_did\",\n  \"when_made\": \"made_to_order\",\n  \"is_digital\": true,\n  \"is_supply\": false,\n  \"taxonomy_id\": {{ $json.etsy_specific?.taxonomy_id || 2078 }},\n  \"tags\": {{ JSON.stringify($json.etsy_specific?.tags || $json.tags || []) }},\n  \"materials\": {{ JSON.stringify($json.etsy_specific?.materials || []) }},\n  \"state\": \"{{ $json.publish_mode === 'immediate' ? 'active' : 'draft' }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2300, 480],
+      "id": "etsy-create",
+      "name": "Etsy: Create Listing",
+      "credentials": {"etsyOAuth2Api": {"id": "YOUR_ETSY_CREDENTIAL", "name": "Etsy"}},
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Etsy response\nconst inputData = $('Split Platforms').item.json;\nconst response = $input.item.json;\n\nlet result = {\n  platform: 'etsy',\n  status: 'failed',\n  listing_id: null,\n  product_url: null,\n  edit_url: null,\n  error: null\n};\n\nif (response.listing_id) {\n  result = {\n    platform: 'etsy',\n    status: 'success',\n    listing_id: response.listing_id,\n    product_url: response.url,\n    edit_url: `https://www.etsy.com/your/shops/me/listings/${response.listing_id}`,\n    price: response.price?.amount / response.price?.divisor || inputData.price,\n    published: response.state === 'active',\n    error: null\n  };\n} else {\n  result.error = response.error || 'Unknown error';\n}\n\nreturn [{ json: { ...inputData, result: result } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2520, 480],
+      "id": "etsy-process",
+      "name": "Process Etsy"
+    },
+    {
+      "parameters": {
+        "content": "## OTHER PLATFORMS\n\nGeneric handler for:\n- Amazon KDP (manual/Selenium)\n- Shopify (Admin API)\n- Payhip (API)\n- LemonSqueezy (API)\n- Ko-fi (API)\n- Teachable (API)\n- Thinkific (API)\n\nEach requires specific auth.",
+        "height": 200,
+        "width": 280
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [2280, 620],
+      "id": "other-note",
+      "name": "Other Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle other platforms (stubbed for now)\n// In production, add specific API calls for each platform\n\nconst inputData = $input.item.json;\nconst platform = inputData.platform;\n\nlet result = {\n  platform: platform,\n  status: 'pending_manual',\n  product_id: null,\n  product_url: null,\n  error: null,\n  message: ''\n};\n\nswitch(platform) {\n  case 'amazon_kdp':\n    result.message = 'Amazon KDP requires manual upload via kdp.amazon.com. Listing data prepared.';\n    result.prepared_data = {\n      title: inputData.title,\n      description: inputData.description,\n      keywords: inputData.kdp_specific?.keywords,\n      bisac: inputData.kdp_specific?.bisac_primary,\n      price: inputData.price\n    };\n    break;\n    \n  case 'shopify':\n    result.message = 'Shopify integration ready. Configure store connection.';\n    result.api_endpoint = '/admin/api/2024-01/products.json';\n    break;\n    \n  case 'payhip':\n    result.message = 'Payhip API integration available.';\n    result.api_endpoint = 'https://payhip.com/api/v1/products';\n    break;\n    \n  case 'lemonsqueezy':\n    result.message = 'LemonSqueezy API integration available.';\n    result.api_endpoint = 'https://api.lemonsqueezy.com/v1/products';\n    break;\n    \n  case 'kofi':\n    result.message = 'Ko-fi shop integration. Manual upload recommended.';\n    break;\n    \n  case 'teachable':\n  case 'thinkific':\n    result.message = `${platform} course platform. API integration available for course creation.`;\n    break;\n    \n  default:\n    result.message = `Platform ${platform} not yet implemented.`;\n}\n\nreturn [{ json: { ...inputData, result: result } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 720],
+      "id": "other-platforms",
+      "name": "Other Platforms",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {"mode": "combine", "combineBy": "combineAll", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2760, 480],
+      "id": "merge-uploads",
+      "name": "Merge Uploads"
+    },
+    {
+      "parameters": {"aggregate": "aggregateAllItemData", "options": {}},
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [2980, 480],
+      "id": "collect-results",
+      "name": "Collect Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build comprehensive results summary\nconst config = $('Build Platform Listings').first().json;\nconst allResults = $input.first().json.data || [];\n\nconst completedAt = new Date().toISOString();\nconst durationMs = new Date(completedAt) - new Date(config.started_at);\n\n// Categorize results\nconst successful = allResults.filter(r => r.result?.status === 'success');\nconst pending = allResults.filter(r => r.result?.status === 'pending_manual');\nconst failed = allResults.filter(r => r.result?.status === 'failed');\n\n// Build product links\nconst productLinks = successful.map(r => ({\n  platform: r.result.platform,\n  url: r.result.product_url,\n  edit_url: r.result.edit_url,\n  price: r.result.price,\n  published: r.result.published\n}));\n\n// Build revenue projections\nconst avgPrice = successful.reduce((sum, r) => sum + (r.result.price || 0), 0) / (successful.length || 1);\nconst projections = {\n  price_avg: Math.round(avgPrice * 100) / 100,\n  at_10_sales: Math.round(avgPrice * 10 * 100) / 100,\n  at_50_sales: Math.round(avgPrice * 50 * 100) / 100,\n  at_100_sales: Math.round(avgPrice * 100 * 100) / 100\n};\n\nreturn [{\n  json: {\n    success: true,\n    session_id: config.session_id,\n    \n    // Product info\n    product: {\n      title: config.asset.title,\n      pages: config.asset.estimated_pages,\n      words: config.asset.total_words\n    },\n    \n    // Upload summary\n    summary: {\n      platforms_requested: config.platforms.length,\n      successful: successful.length,\n      pending_manual: pending.length,\n      failed: failed.length\n    },\n    \n    // Product links (the important stuff!)\n    product_links: productLinks,\n    \n    // Pending manual uploads\n    pending_actions: pending.map(r => ({\n      platform: r.result.platform,\n      message: r.result.message,\n      prepared_data: r.result.prepared_data\n    })),\n    \n    // Failed uploads\n    errors: failed.map(r => ({\n      platform: r.result.platform,\n      error: r.result.error\n    })),\n    \n    // Revenue projections\n    revenue_projections: projections,\n    \n    // Timing\n    duration_seconds: Math.round(durationMs / 1000),\n    \n    // Next steps\n    next_steps: [\n      successful.length > 0 ? 'Products are live! Share your links.' : null,\n      pending.length > 0 ? `Complete manual uploads for: ${pending.map(p => p.result.platform).join(', ')}` : null,\n      failed.length > 0 ? `Retry failed platforms: ${failed.map(f => f.result.platform).join(', ')}` : null,\n      'Set up email automation for buyers',\n      'Create social media launch posts',\n      'Configure affiliate program'\n    ].filter(Boolean),\n    \n    // Metadata\n    asset_id: config.asset_id,\n    callback_workflow: config.callback_workflow\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3200, 480],
+      "id": "build-response",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {"__rl": true, "value": "appXXXXXXXXXXXXXX", "mode": "id"},
+        "table": {"__rl": true, "value": "tblProducts", "mode": "id"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.product.title }}",
+            "Asset": "={{ [$('Build Platform Listings').first().json.asset_id] }}",
+            "Platform URLs": "={{ JSON.stringify($json.product_links) }}",
+            "Platforms": "={{ $json.product_links.map(p => p.platform).join(', ') }}",
+            "Base Price": "={{ $json.revenue_projections.price_avg }}",
+            "Status": "={{ $json.summary.successful > 0 ? 'live' : 'pending' }}",
+            "Session ID": "={{ $json.session_id }}"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.1,
+      "position": [3420, 480],
+      "id": "save-product",
+      "name": "Save Product Record",
+      "credentials": {"airtableTokenApi": {"id": "YOUR_AIRTABLE_CREDENTIAL", "name": "Airtable"}}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 2},
+          "conditions": [
+            {"id": "has-callback", "leftValue": "={{ $('Build Response').first().json.callback_workflow }}", "rightValue": "", "operator": {"type": "string", "operation": "notEmpty"}}
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3640, 480],
+      "id": "check-callback",
+      "name": "Has Callback?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'http://localhost:5678/webhook/' + $('Build Response').first().json.callback_workflow.toLowerCase() }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"product_id\": \"{{ $('Save Product Record').first().json.id }}\",\n  \"title\": \"{{ $('Build Response').first().json.product.title }}\",\n  \"product_links\": {{ JSON.stringify($('Build Response').first().json.product_links) }},\n  \"summary\": {{ JSON.stringify($('Build Response').first().json.summary) }}\n}",
+        "options": {"timeout": 5000}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3860, 380],
+      "id": "trigger-callback",
+      "name": "Trigger Callback",
+      "continueOnFail": true
+    },
+    {
+      "parameters": {"mode": "combine", "combineBy": "combineAll", "options": {}},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4080, 480],
+      "id": "merge-final",
+      "name": "Merge Final"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('Build Response').first().json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [4300, 480],
+      "id": "respond",
+      "name": "Respond"
+    }
+  ],
+  "connections": {
+    "Marketplace Upload Request": {"main": [[{"node": "Validate & Configure", "type": "main", "index": 0}]]},
+    "Validate & Configure": {"main": [[{"node": "Fetch Asset", "type": "main", "index": 0}]]},
+    "Fetch Asset": {"main": [[{"node": "Has Teaser Package?", "type": "main", "index": 0}]]},
+    "Has Teaser Package?": {"main": [[{"node": "Fetch Teaser Package", "type": "main", "index": 0}], [{"node": "Merge Data", "type": "main", "index": 0}]]},
+    "Fetch Teaser Package": {"main": [[{"node": "Merge Data", "type": "main", "index": 0}]]},
+    "Merge Data": {"main": [[{"node": "Build Platform Listings", "type": "main", "index": 0}]]},
+    "Build Platform Listings": {"main": [[{"node": "Split Platforms", "type": "main", "index": 0}]]},
+    "Split Platforms": {"main": [[{"node": "Route by Platform", "type": "main", "index": 0}]]},
+    "Route by Platform": {"main": [[{"node": "Gumroad: Create Product", "type": "main", "index": 0}], [{"node": "Etsy: Create Listing", "type": "main", "index": 0}], [{"node": "Other Platforms", "type": "main", "index": 0}], [{"node": "Other Platforms", "type": "main", "index": 0}], [{"node": "Other Platforms", "type": "main", "index": 0}]]},
+    "Gumroad: Create Product": {"main": [[{"node": "Process Gumroad", "type": "main", "index": 0}]]},
+    "Process Gumroad": {"main": [[{"node": "Merge Uploads", "type": "main", "index": 0}]]},
+    "Etsy: Create Listing": {"main": [[{"node": "Process Etsy", "type": "main", "index": 0}]]},
+    "Process Etsy": {"main": [[{"node": "Merge Uploads", "type": "main", "index": 0}]]},
+    "Other Platforms": {"main": [[{"node": "Merge Uploads", "type": "main", "index": 0}]]},
+    "Merge Uploads": {"main": [[{"node": "Collect Results", "type": "main", "index": 0}]]},
+    "Collect Results": {"main": [[{"node": "Build Response", "type": "main", "index": 0}]]},
+    "Build Response": {"main": [[{"node": "Save Product Record", "type": "main", "index": 0}]]},
+    "Save Product Record": {"main": [[{"node": "Has Callback?", "type": "main", "index": 0}]]},
+    "Has Callback?": {"main": [[{"node": "Trigger Callback", "type": "main", "index": 0}], [{"node": "Merge Final", "type": "main", "index": 0}]]},
+    "Trigger Callback": {"main": [[{"node": "Merge Final", "type": "main", "index": 0}]]},
+    "Merge Final": {"main": [[{"node": "Respond", "type": "main", "index": 0}]]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "versionId": "W18-marketplace-uploader-v1",
+  "meta": {"templateCredsSetupCompleted": false, "instanceId": ""},
+  "id": "W18-MarketplaceUploader",
+  "tags": []
+}

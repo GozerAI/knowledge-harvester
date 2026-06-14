@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Employee Handbooks
+
+name: employee-handbooks
+description: Employee handbooks, people policies, benefits guides, and career framework docs
+artifact_type: documentation
+tool_type: people
+language: markdown
+
+queries:
+  - query: '"employee handbook" extension:md'
+    label: employee-handbook
+  - query: '"benefits guide" extension:md'
+    label: benefits-guide
+  - query: '"career ladder" extension:md'
+    label: career-ladder
+
+validation:
+  min_size: 180
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)employee|manager|benefits|handbook|paid time off|career ladder|performance review'
+
+metadata:
+  framework: people-ops
+  default_category: people-doc

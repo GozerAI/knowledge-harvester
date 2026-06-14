@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — OpenAPI Specifications
+
+name: openapi-specs
+description: OpenAPI/Swagger API specification files
+artifact_type: api_spec
+tool_type: openapi
+language: yaml
+
+queries:
+  - query: 'filename:openapi.yaml "paths:" "info:"'
+    label: openapi-yaml
+  - query: 'filename:swagger.json "paths" "info"'
+    label: swagger-json
+  - query: '"openapi" "3.0" "paths:" extension:yaml'
+    label: openapi-v3
+
+validation:
+  min_size: 200
+  max_size: 500000
+  extensions: [yaml, yml, json]
+  required_patterns:
+    - 'paths:|"paths"'
+    - 'info:|"info"'
+
+metadata:
+  framework: openapi
+  default_category: rest-api

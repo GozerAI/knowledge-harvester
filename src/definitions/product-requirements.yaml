@@ -1,0 +1,26 @@
+# Programmable Harvester Definition — Product Requirements
+
+name: product-requirements
+description: Product requirement docs, specs, briefs, and planning artifacts
+artifact_type: documentation
+tool_type: product
+language: markdown
+
+queries:
+  - query: '"product requirements" "acceptance criteria" extension:md'
+    label: product-requirements
+  - query: '"problem statement" "user story" "success metrics" extension:md'
+    label: product-spec
+  - query: 'filename:prd extension:md'
+    label: prd-file
+
+validation:
+  min_size: 200
+  max_size: 300000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)requirements|acceptance criteria|user story|problem statement|success metrics'
+
+metadata:
+  framework: product
+  default_category: product-doc

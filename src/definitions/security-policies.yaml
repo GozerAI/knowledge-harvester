@@ -1,0 +1,27 @@
+# Programmable Harvester Definition — Security Policies
+
+name: security-policies
+description: Security, access control, data handling, and governance policy documents
+artifact_type: documentation
+tool_type: policy
+language: markdown
+
+queries:
+  - query: '"security policy" "purpose" "scope" extension:md'
+    label: security-policy
+  - query: '"access control policy" "applies to" extension:md'
+    label: access-policy
+  - query: '"data retention policy" "owner" extension:md'
+    label: data-policy
+
+validation:
+  min_size: 200
+  max_size: 250000
+  extensions: [md, markdown]
+  required_patterns:
+    - '(?i)policy|standard|control'
+    - '(?i)purpose|scope|owner|applies to'
+
+metadata:
+  framework: governance
+  default_category: policy
